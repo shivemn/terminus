@@ -1,5 +1,9 @@
 # Changelog
 
+## 14 November 2026
+
+- **24 more routes checked against job postings.** 644 Naukri listings, each opened and tagged, for routes from Salesforce developer to PLC engineer. Only listings matching the role count; thin markets were widened to 0–2 years and say so. Main changes: threat detection onto the hiring list for security engineers, monitoring for MLOps, accounting for risk analysts, APIs and cryptography for blockchain developers; a few tools that under 20% of listings name moved to the first year. Mainframe developer stays a draft because entry-level listings are too few. Method in research/postings/README.md.
+
 ## 11 November 2026
 
 - **Every section is now checked, and the build enforces it.** The last eight unchecked sections were opened in a browser and fixed where they were wrong. Trailhead's hands-on work happens in a free Trailhead Playground, not a Developer Edition org. Apex and integration now point to Trailhead's Apex Integration Services module, because the Admin Beginner trail doesn't cover them. ServiceNow's integration learning path couldn't be found, since its learning has moved behind a sign-in at ServiceNow University, so that link now goes to ServiceNow's public Scripted REST APIs guide. The SAP course moved to a new address; its lessons are reading, not video, and open without an account. The Atlassian agile pages and MIT 16.660J were confirmed as they were. `npm run validate` and the build now fail on any section that isn't `verified: true`.

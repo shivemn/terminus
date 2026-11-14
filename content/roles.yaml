@@ -257,9 +257,14 @@
   summary: Trains and ships neural networks for images, text or speech. More modelling than an ML engineer, more shipping than a researcher.
   projects: {beginner: project-image-classifier, intermediate: project-ml-service, advanced: project-train-from-scratch}
   tiers:
-    hire: [machine-learning, neural-networks, cnns, transformers, pytorch, deep-learning, git, project-ml-service]
-    firstYear: [computer-vision, nlp, mlops, docker, generative-models]
+    hire: [machine-learning, neural-networks, cnns, transformers, pytorch, deep-learning, project-ml-service]
+    firstYear: [computer-vision, nlp, mlops, docker, generative-models, git]
     extra: [reinforcement-learning, distributed-systems, fine-tuning, multimodal, parallel-computing]
+  evidence:
+    postings: 20
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Machine learning (80%), Python (75%) and deep learning (70%) lead; TensorFlow (35%) and PyTorch (30%) come next. Neural networks, CNNs and transformers stay on the hiring list because interviews test them though listings rarely spell them out. 7 of the 20 listings allow up to 2 years."
 
 - id: quant-researcher
   title: Quantitative researcher / analyst
@@ -287,9 +292,14 @@
   summary: Measures market, credit and operational risk for a bank or fund, and reports it to people who set limits.
   projects: {beginner: project-ratio-analysis, intermediate: project-risk-report, advanced: project-credit-scorecard}
   tiers:
-    hire: [statistics, probability, financial-markets, derivatives, risk-management, spreadsheets, sql, programming-basics, project-risk-report]
-    firstYear: [time-series, pandas, bi-tools, portfolio-theory, accounting]
+    hire: [statistics, probability, financial-markets, risk-management, spreadsheets, programming-basics, project-risk-report, accounting]
+    firstYear: [time-series, pandas, bi-tools, portfolio-theory, sql, derivatives]
     extra: [stochastic-processes, machine-learning, econometrics]
+  evidence:
+    postings: 24
+    region: India, entry level
+    collected: 2026-11
+    note: "Risk management (92%) and accounting and financial statements (50%) lead, so accounting moved onto the hiring list. Excel is in 38%. SQL (8%) and derivatives (4%) moved to the first year; most fresher listings are credit and operational risk."
 
 - id: financial-analyst
   title: Financial analyst
@@ -332,9 +342,14 @@
   summary: Builds iPhone and iPad apps in Swift, from screens and navigation to networking and the App Store.
   projects: {beginner: project-mobile-starter, intermediate: project-ios-app, advanced: project-mobile-advanced}
   tiers:
-    hire: [swift, oop-design, git, linear-structures, hash-tables, web-http, rest-apis, project-ios-app]
-    firstYear: [testing-debugging, concurrency, ci-cd, firebase]
+    hire: [swift, oop-design, linear-structures, hash-tables, web-http, rest-apis, project-ios-app]
+    firstYear: [testing-debugging, concurrency, ci-cd, firebase, git]
     extra: [system-design, flutter]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Swift (80%) leads, then APIs (20%). Git moved to the first year. Data structures stay on the hiring list because iOS interviews test them."
 
 - id: salesforce-developer
   search: salesforce developer
@@ -343,9 +358,14 @@
   summary: Configures and extends Salesforce for a company. Objects, security, automation and reports, then code and integrations as the job grows.
   projects: {beginner: project-platform-basics, intermediate: project-platform-app, advanced: project-platform-integration}
   tiers:
-    hire: [salesforce, spreadsheets, sql, programming-basics, project-platform-app]
-    firstYear: [javascript, rest-apis, oop-design, git]
-    extra: [bi-tools, testing-debugging]
+    hire: [salesforce, spreadsheets, programming-basics, project-platform-app]
+    firstYear: [javascript, rest-apis, oop-design, git, testing-debugging, sql]
+    extra: [bi-tools]
+  evidence:
+    postings: 23
+    region: India, entry level
+    collected: 2026-11
+    note: "Salesforce itself is in every listing (Apex, SOQL, Lightning). REST APIs (35%) and JavaScript (30%) come next. SQL moved to the first year: only 9% ask for it, since SOQL is taught inside the Salesforce stop."
 
 - id: servicenow-developer
   title: ServiceNow developer
@@ -353,9 +373,14 @@
   summary: Builds and runs the ServiceNow platform that a company's IT support runs on. Forms, workflows, scripts and integrations.
   projects: {beginner: project-platform-basics, intermediate: project-platform-app, advanced: project-platform-integration}
   tiers:
-    hire: [servicenow, javascript, incident-management, sql, rest-apis, project-platform-app]
-    firstYear: [git, testing-debugging, log-analysis]
+    hire: [servicenow, javascript, project-platform-app]
+    firstYear: [git, testing-debugging, log-analysis, rest-apis, incident-management, sql, agile-scrum]
     extra: [cloud-basics, jira]
+  evidence:
+    postings: 20
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "ServiceNow (100%) and JavaScript (70%) are the hiring list. REST APIs (35%), ITSM (30%) and SQL (20%) moved to the first year. Fresher listings are scarce, so 16 of the 20 allow up to 2 years' experience."
 
 - id: mlops-engineer
   title: MLOps engineer
@@ -363,9 +388,14 @@
   summary: Gets models out of notebooks and keeps them running. Pipelines, deployment, monitoring and retraining.
   projects: {beginner: project-dockerise, intermediate: project-ml-service, advanced: project-ml-platform}
   tiers:
-    hire: [programming-basics, machine-learning, git, shell-tools, docker, ci-cd, mlops, cloud-basics, project-ml-service]
-    firstYear: [kubernetes, observability, infrastructure-as-code, orchestration, databricks]
+    hire: [programming-basics, machine-learning, git, docker, ci-cd, mlops, cloud-basics, project-ml-service, observability]
+    firstYear: [kubernetes, infrastructure-as-code, orchestration, databricks, shell-tools]
     extra: [distributed-systems, spark, hugging-face, inference-serving, ai-system-design]
+  evidence:
+    postings: 30
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Machine learning (93%), MLOps tooling (83%), Python (80%), monitoring (53%) and a cloud (53%) lead; monitoring moved onto the hiring list. Docker (47%) and CI/CD (43%) stay there because deploying models is the job. 11 of the 30 listings allow up to 2 years."
 
 - id: bi-developer
   title: BI developer
@@ -373,9 +403,14 @@
   summary: Builds the dashboards and data models a business runs on, in Power BI or Tableau on top of a warehouse.
   projects: {beginner: project-excel-dashboard, intermediate: project-sales-dashboard, advanced: project-analytics-case}
   tiers:
-    hire: [sql, spreadsheets, bi-tools, data-visualization, data-warehousing, statistics, project-sales-dashboard]
-    firstYear: [tableau, dbt, query-performance, snowflake]
+    hire: [sql, spreadsheets, bi-tools, data-visualization, data-warehousing, project-sales-dashboard]
+    firstYear: [tableau, dbt, query-performance, snowflake, statistics]
     extra: [pandas, databricks]
+  evidence:
+    postings: 30
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Power BI or Tableau (93%), dashboards (93%), SQL (80%) and data warehousing (73%) match the hiring list. Statistics moved to the first year (30%). 18 of the 30 listings allow up to 2 years."
 
 - id: analytics-engineer
   title: Analytics engineer
@@ -383,9 +418,14 @@
   summary: Sits between data engineering and analysis. Turns raw tables into clean, tested models with SQL and dbt.
   projects: {beginner: project-sql-etl, intermediate: project-dbt-models, advanced: project-data-pipeline}
   tiers:
-    hire: [sql, dbt, data-warehousing, git, snowflake, programming-basics, testing-debugging, project-dbt-models]
-    firstYear: [orchestration, bi-tools, databricks, ci-cd]
-    extra: [spark, pandas, query-performance]
+    hire: [sql, data-warehousing, programming-basics, project-dbt-models]
+    firstYear: [orchestration, bi-tools, databricks, ci-cd, dbt, snowflake, git, testing-debugging]
+    extra: [spark, pandas, query-performance, machine-learning]
+  evidence:
+    postings: 21
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Python (71%) and SQL (67%) lead. Indian listings under this title often mean data analytics with some machine learning (57%), so machine learning was added as an extra. dbt (10%) and Snowflake (5%) moved to the first year: the global definition of the role centres on them, but few Indian listings name them. 13 of the 21 listings allow up to 2 years."
 
 - id: product-analyst
   title: Product analyst
@@ -396,6 +436,11 @@
     hire: [sql, spreadsheets, statistics, experiments, data-visualization, bi-tools, project-data-analysis]
     firstYear: [pandas, probability, product-management]
     extra: [machine-learning, bayesian-statistics]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Indian listings titled \"product analyst\" are a mix of data and business-analyst roles, so few name tools: Excel (43%) and SQL (20%) lead. The route keeps SQL, experiments and statistics on the hiring list because product analytics interviews test them."
 
 - id: platform-engineer
   title: Platform engineer
@@ -406,6 +451,11 @@
     hire: [linux-admin, shell-tools, git, networking, docker, kubernetes, ci-cd, infrastructure-as-code, cloud-basics, programming-basics, project-deploy-pipeline]
     firstYear: [observability, go, ansible, nginx]
     extra: [distributed-systems, systems-security, reliability-patterns]
+  evidence:
+    postings: 26
+    region: India, entry level
+    collected: 2026-11
+    note: "A cloud (73%) and a programming language (69%) lead, then monitoring (46%), CI/CD (42%), Docker, Kubernetes and Git (31% each). The route already matches; no changes."
 
 - id: system-administrator
   title: System administrator
@@ -413,9 +463,14 @@
   summary: Keeps servers, users and networks working. Patching, backups, access, monitoring and fixing what breaks.
   projects: {beginner: project-linux-scripts, intermediate: project-homelab, advanced: project-ansible-fleet}
   tiers:
-    hire: [shell-tools, linux-admin, networking, nginx, incident-management, log-analysis, project-homelab]
-    firstYear: [ansible, docker, cloud-basics, observability, git, vim, regex]
+    hire: [shell-tools, linux-admin, networking, log-analysis, project-homelab]
+    firstYear: [ansible, docker, cloud-basics, observability, git, vim, regex, incident-management, nginx]
     extra: [azure, systems-security]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Networking (80%) leads, then Linux (33%) and monitoring (37%). Incident management (7%) and web servers (3%) moved to the first year."
 
 - id: database-administrator
   title: Database administrator
@@ -426,6 +481,11 @@
     hire: [sql, database-internals, query-performance, linux-admin, shell-tools, project-database-ops]
     firstYear: [observability, cloud-basics, incident-management]
     extra: [distributed-systems, mongodb, redis]
+  evidence:
+    postings: 28
+    region: India, entry level
+    collected: 2026-11
+    note: "SQL is in every listing and performance tuning in 39%. Linux and shell scripting stay on the hiring list: DBAs run databases on Linux servers, though only 14 to 18% of listings name them."
 
 - id: penetration-tester
   title: Penetration tester
@@ -433,9 +493,14 @@
   summary: Breaks into systems with permission, then writes up how and how to fix it. Web apps, networks and cloud.
   projects: {beginner: project-ctf, intermediate: project-pentest-report, advanced: project-bug-bounty}
   tiers:
-    hire: [networking, linux-admin, shell-tools, web-http, web-security, security-fundamentals, nmap, burp-suite, programming-basics, project-pentest-report]
-    firstYear: [wireshark, systems-security, cryptography]
+    hire: [networking, linux-admin, shell-tools, web-http, web-security, security-fundamentals, burp-suite, programming-basics, project-pentest-report]
+    firstYear: [wireshark, systems-security, cryptography, threat-detection, nmap]
     extra: [cloud-iam, c-and-memory]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Security fundamentals (100%) and web security (70%) lead; networking is in 43%. Threat detection (53%) was added to the first year: many fresher listings combine testing with SOC work. Burp Suite (23%) stays on the hiring list as the tool the job uses daily; Nmap moved to the first year."
 
 - id: security-engineer
   title: Security engineer
@@ -443,9 +508,14 @@
   summary: Designs and builds defences. Secure infrastructure, identity, detection and helping developers ship safe code.
   projects: {beginner: project-ctf, intermediate: project-security-review, advanced: project-detection-lab}
   tiers:
-    hire: [networking, linux-admin, security-fundamentals, web-security, systems-security, cryptography, programming-basics, cloud-iam, project-security-review]
-    firstYear: [threat-detection, incident-management, splunk, infrastructure-as-code]
+    hire: [networking, security-fundamentals, web-security, systems-security, programming-basics, cloud-iam, project-security-review, threat-detection]
+    firstYear: [incident-management, splunk, infrastructure-as-code, linux-admin, cryptography]
     extra: [kubernetes, wireshark]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Security fundamentals (100%), web security (70%) and threat detection (53%) lead, so threat detection moved onto the hiring list. Linux administration (17%) and cryptography (3%) moved to the first year."
 
 - id: solutions-architect
   title: Solutions architect
@@ -463,9 +533,14 @@
   summary: Decides what a team builds and why, and makes sure it gets built. Users, priorities, specs, data and a lot of conversations.
   projects: {beginner: project-prd, intermediate: project-product-teardown, advanced: project-ship-feature}
   tiers:
-    hire: [product-management, agile-scrum, ux-design, sql, spreadsheets, experiments, jira, web-http, project-product-teardown]
-    firstYear: [statistics, data-visualization, technical-writing, figma]
+    hire: [product-management, agile-scrum, ux-design, sql, spreadsheets, web-http, project-product-teardown]
+    firstYear: [statistics, data-visualization, technical-writing, figma, jira, experiments]
     extra: [system-design, programming-basics]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Product management (73%) leads, then UX (33%) and agile (27%). Jira (10%) and experiments (7%) moved to the first year."
 
 - id: ui-ux-designer
   search: ui ux designer
@@ -504,9 +579,14 @@
   summary: Writes the guides, API references and help pages that make software usable.
   projects: {beginner: project-readme-rewrite, intermediate: project-docs-portfolio, advanced: project-docs-site}
   tiers:
-    hire: [technical-writing, git, html-css, web-http, rest-apis, project-docs-portfolio]
-    firstYear: [programming-basics, agile-scrum, jira, github-pages]
+    hire: [technical-writing, git, project-docs-portfolio]
+    firstYear: [programming-basics, agile-scrum, jira, github-pages, html-css, rest-apis, web-http]
     extra: [ux-design, javascript]
+  evidence:
+    postings: 29
+    region: India, entry level
+    collected: 2026-11
+    note: "Technical writing (72%) leads; Git or docs-as-code is in 24%. HTML, APIs and HTTP moved to the first year (3 to 7%): API documentation is one kind of technical writing, not what most fresher listings ask for."
 
 - id: scrum-master
   title: Scrum master / delivery manager
@@ -675,9 +755,14 @@
   summary: Builds software robots that do repetitive office work, like copying data between systems or reading invoices. UiPath is the tool most postings name.
   projects: {beginner: project-rpa-basic, intermediate: project-automation, advanced: project-rpa-orchestrated}
   tiers:
-    hire: [rpa-uipath, programming-basics, spreadsheets, sql, project-automation]
-    firstYear: [business-processes, testing-debugging, rest-apis]
-    extra: [csharp, llm-apis]
+    hire: [rpa-uipath, programming-basics, sql, project-automation]
+    firstYear: [business-processes, testing-debugging, rest-apis, spreadsheets, csharp]
+    extra: [llm-apis]
+  evidence:
+    postings: 23
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "UiPath or another RPA tool is in every listing; SQL is in 52%. C# (43%) moved up from extras to the first year, and Excel (30%) down from the hiring list. 15 of the 23 listings allow up to 2 years."
   search: RPA developer
 
 - id: vlsi-engineer
@@ -697,9 +782,14 @@
   summary: Programs the gameplay, tools and systems of video games, mostly in Unity with C# or Unreal with C++. India's studios make many mobile and casual games.
   projects: {beginner: project-pong, intermediate: project-game, advanced: project-game-release}
   tiers:
-    hire: [programming-basics, csharp, oop-design, game-engines, game-programming, linear-algebra, git, project-game]
-    firstYear: [linear-structures, hash-tables, testing-debugging]
-    extra: [cpp, computer-graphics, networking]
+    hire: [programming-basics, csharp, oop-design, game-engines, game-programming, linear-algebra, project-game]
+    firstYear: [linear-structures, hash-tables, testing-debugging, cpp, git]
+    extra: [computer-graphics, networking]
+  evidence:
+    postings: 30
+    region: India, entry level
+    collected: 2026-11
+    note: "Game programming (97%), Unity or Unreal (80%) and C# (50%) lead. C++ moved up to the first year (30%) and Git down to it (10%)."
   search: game developer
 
 - id: blockchain-developer
@@ -708,9 +798,14 @@
   summary: Writes smart contracts and the apps around them, mostly on Ethereum and chains like it. Most openings are at startups and many are remote.
   projects: {beginner: project-token, intermediate: project-dapp, advanced: project-defi-protocol}
   tiers:
-    hire: [programming-basics, javascript, blockchain-basics, solidity, git, testing-debugging, project-dapp]
-    firstYear: [smart-contract-security, react, rest-apis]
-    extra: [cryptography, rust, go]
+    hire: [programming-basics, javascript, blockchain-basics, solidity, git, testing-debugging, project-dapp, rest-apis, cryptography]
+    firstYear: [smart-contract-security, react]
+    extra: [rust, go]
+  evidence:
+    postings: 21
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Blockchain (100%), Solidity (86%) and JavaScript (57%) lead. APIs (57%) and cryptography (52%) moved onto the hiring list. 18 of the 21 listings allow up to 2 years."
   search: blockchain developer
 
 - id: operations-research-analyst
@@ -752,9 +847,14 @@
   summary: Builds and programs robots, from warehouse and factory arms to drones, mostly in C++ and Python on ROS. Hires electronics, electrical and mechanical graduates who can show a robot they built.
   projects: {beginner: project-line-follower, intermediate: project-robot, advanced: project-autonomous-nav}
   tiers:
-    hire: [programming-basics, cpp, linear-algebra, robotics, control-systems, ros, microcontrollers, git, project-robot]
-    firstYear: [linux-admin, computer-vision, testing-debugging]
+    hire: [programming-basics, cpp, linear-algebra, robotics, control-systems, ros, microcontrollers, project-robot]
+    firstYear: [linux-admin, computer-vision, testing-debugging, git]
     extra: [machine-learning, embedded-protocols, matlab]
+  evidence:
+    postings: 30
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Robotics (97%) leads, then Python (47%), C++ (37%) and ROS (33%). Control systems and microcontrollers stay on the hiring list because the interviews and the work rest on them. 12 of the 30 listings allow up to 2 years."
   search: robotics engineer
 
 - id: automation-engineer
@@ -763,9 +863,14 @@
   summary: Programs the PLCs and SCADA systems that run factories, plants and buildings, then commissions them on site. Electrical and instrumentation graduates fill most of these jobs.
   projects: {beginner: project-ladder-basics, intermediate: project-plc-line, advanced: project-scada-system}
   tiers:
-    hire: [circuit-analysis, digital-logic, electrical-machines, plc-scada, control-systems, spreadsheets, project-plc-line]
-    firstYear: [networking, power-electronics]
+    hire: [circuit-analysis, digital-logic, electrical-machines, plc-scada, control-systems, project-plc-line]
+    firstYear: [networking, power-electronics, spreadsheets]
     extra: [programming-basics, sql, matlab]
+  evidence:
+    postings: 23
+    region: India, entry level
+    collected: 2026-11
+    note: "PLC and SCADA programming (57%) leads. Electrical machines (17%) and control systems stay on the hiring list as the theory the job rests on. Excel moved to the first year. Searched as \"PLC engineer\": \"PLC SCADA engineer\" returned only 6 fresher listings."
   search: PLC SCADA engineer
 
 - id: telecom-engineer
@@ -774,9 +879,14 @@
   summary: Plans, tests and tunes mobile and wireless networks, from radio coverage to the core network. Telecom vendors and operators hire electronics graduates in batches.
   projects: {beginner: project-signal-analysis, intermediate: project-comms-link, advanced: project-sdr-receiver}
   tiers:
-    hire: [signals-and-systems, communication-systems, electromagnetics, networking, spreadsheets, project-comms-link]
-    firstYear: [linux-admin, shell-tools, programming-basics, matlab]
+    hire: [signals-and-systems, communication-systems, electromagnetics, networking, project-comms-link]
+    firstYear: [linux-admin, shell-tools, programming-basics, matlab, spreadsheets]
     extra: [cloud-basics, sql]
+  evidence:
+    postings: 30
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Communication systems and RF (80%) lead, then electromagnetics and antennas (40%) and networking (33%). Excel moved to the first year (10%). Fresher listings are few, so the search also covered \"RF engineer\" and 20 of the 30 allow up to 2 years."
   search: telecom engineer
 
 - id: power-electronics-engineer
@@ -786,8 +896,13 @@
   projects: {beginner: project-power-sim, intermediate: project-power-converter, advanced: project-inverter}
   tiers:
     hire: [circuit-analysis, analog-electronics, power-electronics, control-systems, microcontrollers, pcb-design, project-power-converter]
-    firstYear: [electrical-machines, c-and-memory, matlab]
+    firstYear: [electrical-machines, c-and-memory, matlab, testing-debugging]
     extra: [signals-and-systems, programming-basics]
+  evidence:
+    postings: 26
+    region: India, entry level
+    collected: 2026-11
+    note: "Power electronics (88%) and PCB design (54%) lead; microcontrollers (42%) and circuit analysis (38%) follow. Testing and debugging hardware (54%) was added to the first year."
   search: power electronics engineer
 
 - id: electrical-engineer
@@ -887,9 +1002,14 @@
   summary: Keeps the sales team's data, targets and reports in order, mostly in a CRM like Salesforce, and finds where deals get stuck.
   projects: {beginner: project-excel-dashboard, intermediate: project-sales-dashboard, advanced: project-sales-forecast}
   tiers:
-    hire: [spreadsheets, salesforce, bi-tools, sql, data-visualization, project-sales-dashboard]
-    firstYear: [marketing-fundamentals, statistics]
+    hire: [spreadsheets, salesforce, data-visualization, project-sales-dashboard]
+    firstYear: [marketing-fundamentals, statistics, sql, bi-tools]
     extra: [experiments]
+  evidence:
+    postings: 30
+    region: India, 0–2 years
+    collected: 2026-11
+    note: "Excel (43%), Salesforce (40%) and reporting (37%) lead. SQL and BI tools moved to the first year (10% each). 16 of the 30 listings allow up to 2 years."
   search: sales operations analyst
 
 - id: gate-da
