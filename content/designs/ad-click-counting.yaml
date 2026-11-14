@@ -5,6 +5,7 @@ like:
 - Meta Ads
 - Amazon Ads
 level: advanced
+group: block
 summary: Every ad shown is logged with the search or page it came from; every click is logged by a tracker that
   redirects the person straight on. A joiner matches each click to its query in near real time, checking a shared
   registry of click IDs so no click is ever counted twice, then sends the joined events on for counting and billing.

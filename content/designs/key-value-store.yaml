@@ -5,6 +5,7 @@ like:
 - Apache Cassandra
 - Riak
 level: advanced
+group: block
 summary: Keys are hashed onto a ring, and each key is stored on the next few nodes around it. A write succeeds once
   enough of those copies confirm, and a read asks enough of them to see the latest. Nodes find out about each other
   by gossip; if one is down, another holds its writes and hands them back later. The hard parts are staying writable

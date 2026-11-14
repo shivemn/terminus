@@ -4,13 +4,18 @@ import { content } from '../../lib/site';
 import { LEVELS } from '../../lib/designs';
 
 const c = content();
-const groups = LEVELS.map((l) => ({ ...l, items: c.designs.filter((d) => d.level === l.id) })).filter((g) => g.items.length);
+const apps = c.designs.filter((d) => d.group === 'app');
+const blocks = c.designs.filter((d) => d.group === 'block');
+const groups = LEVELS.map((l) => ({ ...l, items: apps.filter((d) => d.level === l.id) })).filter((g) => g.items.length);
+const order = Object.fromEntries(LEVELS.map((l, i) => [l.id, i]));
+const blockItems = [...blocks].sort((a, b) => order[a.level] - order[b.level]);
+const levelTitle = Object.fromEntries(LEVELS.map((l) => [l.id, l.title]));
 ---
 
 <Base
   wide
   title="Designs"
-  description="Worked system designs for products you use: URL shortener, rate limiter, chat, news feed, live cricket streaming, UPI payments, ticket rushes, food delivery and an AI assistant."
+  description={`${c.designs.length} worked system designs: apps you use, from chat and UPI payments to video calls and food delivery, and the building blocks under them, from message queues to caches and crawlers.`}
 >
   <h1><span class="board">Designs</span></h1>
   <p class="lede">
@@ -41,6 +46,25 @@ const groups = LEVELS.map((l) => ({ ...l, items: c.designs.filter((d) => d.level
       </section>
     ))
   }
+
+  {
+    blockItems.length > 0 && (
+      <section aria-labelledby="blocks">
+        <h2 id="blocks">Building blocks</h2>
+        <p class="quiet level-note">The infrastructure the apps above are built on, each marked with its level.</p>
+        <ul class="designs">
+          {blockItems.map((d) => (
+            <li>
+              <a class="design-name" href={`/designs/${d.id}`}>{d.title}</a>
+              <p class="like">Like {d.like.join(", ")} <span class="chip-level">{levelTitle[d.level]}</span></p>
+              <p class="quiet">{d.summary.split(/(?<=\.)\s/)[0]}</p>
+              <p class="faint meta">{d.flows.length} flows to follow, {d.companies.length} {d.companies.length === 1 ? "company" : "companies"} compared</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 </Base>
 
 <style>
@@ -57,5 +81,6 @@ const groups = LEVELS.map((l) => ({ ...l, items: c.designs.filter((d) => d.level
   .design-name { font-family: var(--sign); font-stretch: 85%; font-size: 1.5rem; font-weight: 650; line-height: 1.1; }
   .like { font-weight: 600; font-size: 0.97rem; }
   .meta { font-size: 0.9rem; }
+  .chip-level { display: inline-block; font: 700 0.8rem var(--text); border: 2px solid var(--ink); padding: 0 6px; margin-left: 6px; vertical-align: 1px; }
   @media (max-width: 560px) { .designs { grid-template-columns: 1fr; } }
 </style>

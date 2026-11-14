@@ -5,6 +5,7 @@ like:
 - Redis
 - Amazon ElastiCache
 level: core
+group: block
 summary: Web servers ask the cache first and go to the database only on a miss, then fill the cache themselves.
   Writes go to the database and delete the cached copy rather than updating it. A router spreads keys across many
   cache servers, a stand-in pool covers servers that fail, and a daemon reading the database's commits broadcasts

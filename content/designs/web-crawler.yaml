@@ -5,6 +5,7 @@ like:
 - Common Crawl
 - Bingbot
 level: core
+group: block
 summary: Crawling starts from known URLs and sitemaps. A frontier decides what to fetch next, keeping a queue per
   site so no site is hit too fast and robots.txt is respected. Fetchers download pages in parallel; a parser saves
   the content and pulls out links, and only links never seen before go back into the frontier. The hard parts are

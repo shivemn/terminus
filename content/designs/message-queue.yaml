@@ -5,6 +5,7 @@ like:
 - Amazon SQS
 - RabbitMQ
 level: advanced
+group: block
 summary: 'A topic is split into partitions, and each partition is an append-only log on disk. Producers append;
   followers copy the log, and a message counts as written once every in-sync copy has it. Consumers don''t delete
   what they read: each group just remembers its position, an offset, so many groups can read the same log at their

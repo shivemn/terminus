@@ -345,6 +345,8 @@ export const designSchema = z.object({
   /** Real products this is like, e.g. ["WhatsApp", "Discord"]. */
   like: z.array(z.string().min(1)).min(1),
   level: z.enum(['starter', 'core', 'advanced']),
+  /** 'app' for products people use; 'block' for the infrastructure they are built on. */
+  group: z.enum(['app', 'block']).default('app'),
   /** Three to five sentences: how it works and what is hard. */
   summary: z.string().min(1),
   /** Stops this design uses, linked from the page and back from each stop. */

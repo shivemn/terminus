@@ -5,6 +5,7 @@ like:
 - Datadog
 - Uber's M3
 level: core
+group: block
 summary: Every service exposes counters and timings. Collectors fetch them every few seconds, and each reading is
   stored in a time-series database under its name and labels, heavily compressed. Dashboards query it; alert rules
   are checked against it every minute, and an alert manager groups what fires and pages the on-call engineer. The

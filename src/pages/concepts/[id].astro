@@ -104,7 +104,7 @@ const shelf = c.toolGroups.find((g) => g.tools.includes(concept.id));
             {designs.map((d) => (
               <li>
                 <a href={`/designs/${d.id}`}>{d.title}</a>
-                <span class="quiet"> like {d.like}</span>
+                <span class="quiet"> like {d.like.join(', ')}</span>
               </li>
             ))}
           </ul>

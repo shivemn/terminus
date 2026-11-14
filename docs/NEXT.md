@@ -24,7 +24,7 @@ These are live today and must be verified or removed before anything else:
 
 Then make `npm run validate` fail on any `verified: false`.
 
-## 2. Rebuild the Designs pages in the approved style
+## 2. Rebuild the Designs pages in the approved style (done 14 November)
 
 The approved page is `docs/prototypes/chat-design.html` (also published as a
 Claude artifact). Build exactly that, as Astro components fed from YAML:
@@ -46,7 +46,7 @@ Claude artifact). Build exactly that, as Astro components fed from YAML:
 Order: convert the 9 existing designs first (chat is already written and
 verified), then add the new ones.
 
-## 3. New designs (23)
+## 3. New designs (23) (done 14 November)
 
 Apps: photo sharing (Instagram, Pinterest), video on demand (YouTube,
 Netflix), music streaming (Spotify), video calls (Zoom, Google Meet), file

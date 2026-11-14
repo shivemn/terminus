@@ -5,6 +5,7 @@ like:
 - Nasdaq
 - LMAX
 level: advanced
+group: block
 summary: Orders pass risk checks at a gateway, then a sequencer gives each one a number and writes it to a journal
   before anything happens. A single-threaded matching engine applies them in that exact order to an in-memory order
   book, pairing buyers and sellers by price, then time. Because the inputs are journalled in order, a standby can

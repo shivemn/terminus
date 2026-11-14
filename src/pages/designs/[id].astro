@@ -16,7 +16,14 @@ const href = (id: string) => `/${shelved.has(id) ? 'tools' : 'concepts'}/${id}`;
 const stopIds = new Set([...d.stops, ...d.diagram.nodes.flatMap((n) => (n.stop ? [n.stop] : []))]);
 const hrefs = Object.fromEntries([...stopIds].map((id) => [id, href(id)]));
 const stops = d.stops.map((id) => c.concepts.find((x) => x.id === id)!);
-const others = c.designs.filter((x) => x.id !== d.id);
+// Up to eight related designs: most shared stops first, same group as a tie-break.
+const mine = new Set(d.stops);
+const others = c.designs
+  .filter((x) => x.id !== d.id)
+  .map((x) => ({ x, score: x.stops.filter((s) => mine.has(s)).length * 2 + (x.group === d.group ? 1 : 0) }))
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 8)
+  .map((o) => o.x);
 const firstSentence = d.summary.split(/(?<=\.)\s/)[0];
 ---
 
@@ -134,8 +141,8 @@ const firstSentence = d.summary.split(/(?<=\.)\s/)[0];
     </div>
 
     <section class="more" aria-labelledby="more">
-      <h2 id="more">More designs</h2>
-      <p class="stops">{others.map((o) => <a class="chip" href={`/designs/${o.id}`}>{o.title}</a>)}</p>
+      <h2 id="more">Related designs</h2>
+      <p class="stops">{others.map((o) => <a class="chip" href={`/designs/${o.id}`}>{o.title}</a>)} <a href="/designs">All {c.designs.length} designs</a></p>
       <p class="quiet small">
         Diagrams drawn for Terminus, simplified for learning, with icons from Tabler Icons (MIT). What a company built comes only from
         that company's own posts, talks or docs, linked above. Numbers in the table are our assumptions; real figures name their source.

@@ -5,6 +5,7 @@ like:
 - cron at scale
 - Temporal
 level: core
+group: block
 summary: Engineers describe each workflow as a graph of tasks with dependencies, in a file. A processor reads those
   files into a database; the scheduler checks which runs are due and which tasks have everything they depend on
   finished, and queues those for workers. Every task's state lives in the database, so failures can be retried and
