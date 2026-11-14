@@ -1,0 +1,233 @@
+id: job-scheduler
+title: Design a job scheduler
+like:
+- Apache Airflow
+- cron at scale
+- Temporal
+level: core
+summary: Engineers describe each workflow as a graph of tasks with dependencies, in a file. A processor reads those
+  files into a database; the scheduler checks which runs are due and which tasks have everything they depend on
+  finished, and queues those for workers. Every task's state lives in the database, so failures can be retried and
+  nothing runs twice by accident. The hard parts are dependencies, retries, and a midnight rush.
+stops:
+- graph-algorithms
+- orchestration
+- messaging
+- sql
+- reliability-patterns
+- distributed-systems
+diagram:
+  width: 1300
+  height: 420
+  nodes:
+  - id: eng
+    name: Engineers
+    sub: Write workflow files
+    kind: edge
+    icon: code
+    x: 110
+    y: 320
+    w: 190
+  - id: proc
+    name: Workflow processor
+    sub: Parses the files
+    kind: service
+    icon: folder
+    x: 380
+    y: 120
+    w: 200
+  - id: db
+    name: Metadata DB
+    sub: State of every task
+    kind: store
+    icon: database
+    x: 650
+    y: 120
+    stop: sql
+  - id: sched
+    name: Scheduler
+    sub: What's due and ready
+    kind: service
+    icon: clock
+    x: 650
+    y: 320
+    stop: graph-algorithms
+  - id: queue
+    name: Task queue
+    sub: Ready to run
+    kind: store
+    icon: queue
+    x: 920
+    y: 320
+    stop: messaging
+  - id: workers
+    name: Workers
+    sub: Run tasks
+    kind: service
+    icon: server
+    x: 1180
+    y: 320
+    w: 170
+    stop: distributed-systems
+  edges:
+  - id: e-p
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 120
+    - - 280.0
+      - 120
+    label:
+      text: workflow files
+      x: 195
+      y: 102
+      anchor: middle
+  - id: p-db
+    pts:
+    - - 480.0
+      - 120
+    - - 560.0
+      - 120
+    label:
+      text: save
+      x: 520
+      y: 102
+      anchor: middle
+  - id: s-db
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 153.0
+    label:
+      text: due runs, states
+      x: 666
+      y: 224
+      anchor: start
+    two: true
+  - id: s-q
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: ready tasks
+      x: 785
+      y: 302
+      anchor: middle
+  - id: q-w
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+  - id: w-db
+    pts:
+    - - 1180
+      - 287.0
+    - - 1180
+      - 120
+    - - 740.0
+      - 120
+    label:
+      text: success or failure
+      x: 960
+      y: 111
+      anchor: middle
+flows:
+- id: define
+  name: Define a workflow
+  steps:
+  - text: 'An engineer writes a workflow: tasks, their dependencies, and a schedule such as daily at 2 am.'
+    edges:
+    - e-p
+  - text: The processor parses it and saves the graph to the database.
+    edges:
+    - p-db
+- id: run
+  name: Run it
+  steps:
+  - text: At 2 am the scheduler sees a run is due and records it.
+    edges:
+    - s-db
+  - text: It queues every task whose dependencies have all succeeded; at first, those with none.
+    edges:
+    - s-q
+  - text: Workers run them and record success or failure.
+    edges:
+    - q-w
+    - w-db
+  - text: On the next pass, tasks that depended on them become ready, until the graph is done.
+    edges:
+    - s-db
+    - s-q
+- id: fail
+  name: A task fails
+  steps:
+  - text: A worker records the failure.
+    edges:
+    - w-db
+  - text: The scheduler retries it after a delay, a set number of times.
+    edges:
+    - s-db
+    - s-q
+  - text: If it still fails, tasks that depend on it are not run, and the owner is alerted.
+    nodes:
+    - sched
+requirements:
+  features:
+  - Workflows as graphs of tasks
+  - Schedules and manual runs
+  - Retries and alerts
+  - Re-run past dates
+  qualities:
+  - A task never runs before its inputs exist
+  - Nothing silently skipped
+  - Survives scheduler restarts
+  - Handles the midnight rush
+numbers:
+  assumption: 'Our assumption: 10,000 workflows averaging 100 tasks, most running daily.'
+  rows:
+  - what: Tasks a day
+    size: 1 million
+    how: 10,000 × 100.
+  - what: Average rate
+    size: about 12 a second
+    how: 1 million ÷ 86,400, but most start in a few hours after midnight.
+decisions:
+- title: State in a database
+  text: Every run and task state is a row, so a restarted scheduler picks up where it left off.
+- title: Workflows as code
+  text: Files can be reviewed, versioned and tested like any other code.
+- title: Idempotent tasks
+  text: A retried task may run twice, so tasks should overwrite their output rather than append.
+breaks:
+- what: Everything at midnight.
+  fix: Thousands of workflows start together. Spread schedules and limit concurrency.
+- what: One huge workflow.
+  fix: Scheduling passes slow down. Split it, and keep tasks coarse.
+- what: Late inputs.
+  fix: An upstream file hasn't arrived. Wait with a sensor and a timeout instead of failing.
+companies:
+- name: Airbnb
+  text: Built Airflow and open-sourced it in 2015, after finding nothing that met its needs. Its batch jobs form
+    DAGs (directed acyclic graphs) that are scheduled, mission critical, evolving and run on many different systems.
+    Executors run tasks locally or across machines using Celery.
+  links:
+  - title: 'Airflow: a workflow management platform'
+    publisher: The Airbnb Tech Blog
+    year: '2015'
+    url: https://medium.com/airbnb-engineering/airflow-a-workflow-management-platform-46318b977fd8
+    verified: true
+- name: Apache Airflow
+  text: A scheduler triggers workflows and submits tasks to an executor; a separate processor parses workflow files
+    into a metadata database, usually PostgreSQL or MySQL, which stores the state of every task.
+  links:
+  - title: Architecture overview
+    publisher: Apache Airflow
+    year: '2026'
+    url: https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/overview.html
+    verified: true
+others: []

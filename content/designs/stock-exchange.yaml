@@ -1,0 +1,265 @@
+id: stock-exchange
+title: Design a stock exchange
+like:
+- NSE
+- Nasdaq
+- LMAX
+level: advanced
+summary: Orders pass risk checks at a gateway, then a sequencer gives each one a number and writes it to a journal
+  before anything happens. A single-threaded matching engine applies them in that exact order to an in-memory order
+  book, pairing buyers and sellers by price, then time. Because the inputs are journalled in order, a standby can
+  replay them and reach the same state. The hard parts are microsecond latency, fairness, and never losing a trade.
+stops:
+- concurrency
+- trees-heaps
+- database-internals
+- reliability-patterns
+- networking
+- computer-architecture
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: brokers
+    name: Brokers
+    sub: Send orders
+    kind: edge
+    icon: users
+    x: 110
+    y: 320
+    w: 170
+  - id: gw
+    name: Order gateway
+    sub: Checks, risk limits
+    kind: service
+    icon: gateway
+    x: 380
+    y: 320
+    stop: networking
+  - id: seq
+    name: Sequencer
+    sub: Numbers every order
+    kind: service
+    icon: counter
+    x: 650
+    y: 320
+    stop: concurrency
+  - id: journal
+    name: Journal
+    sub: Every input, first
+    kind: store
+    icon: file
+    x: 650
+    y: 120
+    stop: database-internals
+  - id: standby
+    name: Standby engine
+    sub: Replays the same inputs
+    kind: service
+    icon: sync
+    x: 920
+    y: 120
+    w: 200
+    stop: reliability-patterns
+  - id: engine
+    name: Matching engine
+    sub: Order book in memory
+    kind: service
+    icon: scale
+    x: 920
+    y: 320
+    stop: trees-heaps
+  - id: md
+    name: Market data
+    sub: Prices, trades
+    kind: external
+    icon: chart
+    x: 1180
+    y: 320
+    w: 170
+    stop: messaging
+  - id: trades
+    name: Trade records
+    sub: For settlement
+    kind: store
+    icon: bank
+    x: 920
+    y: 520
+    stop: sql
+  edges:
+  - id: b-g
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: orders
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: g-s
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: checked
+      x: 515
+      y: 302
+      anchor: middle
+    two: true
+  - id: s-j
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 153.0
+    label:
+      text: write first
+      x: 666
+      y: 224
+      anchor: start
+  - id: j-sb
+    pts:
+    - - 740.0
+      - 120
+    - - 820.0
+      - 120
+    label:
+      text: copy
+      x: 780
+      y: 102
+      anchor: middle
+  - id: s-e
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: in order
+      x: 785
+      y: 302
+      anchor: middle
+    two: true
+  - id: e-md
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+    label:
+      text: feed
+      x: 1052
+      y: 302
+      anchor: middle
+  - id: e-t
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 487.0
+    label:
+      text: trades
+      x: 936
+      y: 424
+      anchor: start
+flows:
+- id: order
+  name: Place an order
+  steps:
+  - text: A broker sends an order to buy 100 shares at ₹500.
+    edges:
+    - b-g
+  - text: The gateway checks it and the broker's risk limits.
+    edges:
+    - g-s
+  - text: The sequencer gives it the next number and writes it to the journal before anything else.
+    edges:
+    - s-j
+  - text: The matching engine takes orders strictly in that order.
+    edges:
+    - s-e
+- id: match
+  name: Match
+  steps:
+  - text: The engine looks at the best sell price in the book. If it's ₹500 or lower, a trade happens; the oldest
+      order at that price goes first.
+    nodes:
+    - engine
+  - text: Anything left over rests in the book.
+    nodes:
+    - engine
+  - text: Trades are recorded for settlement and published on the market data feed; brokers get confirmations.
+    edges:
+    - e-t
+    - e-md
+    - s-e
+    - g-s
+    - b-g
+- id: fail
+  name: The engine fails
+  steps:
+  - text: The standby has been receiving every journalled input in the same order.
+    edges:
+    - j-sb
+  - text: Replaying the same inputs in the same order gives exactly the same book, so it takes over without losing
+      an order.
+    nodes:
+    - standby
+requirements:
+  features:
+  - Limit and market orders
+  - Price, then time priority
+  - Live market data
+  - Cancel and modify orders
+  qualities:
+  - Microseconds per order
+  - Strictly fair ordering
+  - No order or trade ever lost
+  - Recovers in seconds
+numbers:
+  assumption: 'Our assumption: 100,000 orders a second at peak across 5,000 listed stocks.'
+  rows:
+  - what: Time per order
+    size: under 10 µs
+    how: 1 second ÷ 100,000 leaves 10 µs each on one thread, with headroom needed.
+  - what: Journal
+    size: about 10 MB a second
+    how: 100,000 orders × about 100 bytes.
+  - what: Order book
+    size: fits in memory
+    how: '5,000 books × thousands of resting orders: a few GB at most.'
+decisions:
+- title: One thread
+  text: Matching on a single thread needs no locks and gives one clear order of events.
+- title: Journal before acting
+  text: Writing every input first means the state can always be rebuilt by replaying.
+- title: Everything in memory
+  text: Disk and database round trips are far too slow at microsecond scale.
+breaks:
+- what: A flood of orders.
+  fix: Throttle at the gateway per broker, before the sequencer.
+- what: One very busy stock.
+  fix: Run separate engines for groups of stocks, each single-threaded.
+- what: Unfair network paths.
+  fix: Some brokers are closer. Equal cable lengths and timestamps at the edge keep it fair.
+companies:
+- name: LMAX
+  text: Built the Disruptor while building what it calls the world's highest performance financial exchange, after
+    finding that queues between pipeline stages dominated its costs. At its heart is a ring buffer allocated once
+    at start-up; in LMAX's tests a three-stage pipeline had mean latency three orders of magnitude lower than with
+    queues, and about 8 times the throughput.
+  links:
+  - title: 'LMAX Disruptor: high performance alternative to bounded queues'
+    publisher: LMAX
+    year: '2011'
+    url: https://lmax-exchange.github.io/disruptor/disruptor.html
+    verified: true
+others:
+- title: The LMAX architecture
+  publisher: Martin Fowler
+  url: https://martinfowler.com/articles/lmax.html

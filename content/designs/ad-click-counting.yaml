@@ -1,0 +1,256 @@
+id: ad-click-counting
+title: Design ad click counting
+like:
+- Google Ads
+- Meta Ads
+- Amazon Ads
+level: advanced
+summary: Every ad shown is logged with the search or page it came from; every click is logged by a tracker that
+  redirects the person straight on. A joiner matches each click to its query in near real time, checking a shared
+  registry of click IDs so no click is ever counted twice, then sends the joined events on for counting and billing.
+  The hard parts are late or missing events, data-centre failures, and counting exactly once.
+stops:
+- messaging
+- distributed-systems
+- partitioning-replication
+- data-warehousing
+- reliability-patterns
+- spark
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: user
+    name: Viewer
+    sub: Sees and clicks ads
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: ads
+    name: Ad server
+    sub: Logs each ad shown
+    kind: service
+    icon: server
+    x: 380
+    y: 120
+    stop: api-styles
+  - id: click
+    name: Click tracker
+    sub: Logs, then redirects
+    kind: service
+    icon: link
+    x: 380
+    y: 320
+    stop: web-http
+  - id: qlog
+    name: Query log
+    sub: With a query ID
+    kind: store
+    icon: queue
+    x: 650
+    y: 120
+    stop: messaging
+  - id: clog
+    name: Click log
+    sub: With the query ID
+    kind: store
+    icon: queue
+    x: 650
+    y: 320
+  - id: join
+    name: Joiner
+    sub: Click plus its query
+    kind: service
+    icon: link
+    x: 920
+    y: 320
+    stop: distributed-systems
+  - id: ids
+    name: Joined click IDs
+    sub: Shared across data centres
+    kind: store
+    icon: database
+    x: 920
+    y: 520
+    w: 220
+    stop: partitioning-replication
+  - id: count
+    name: Counts, billing
+    sub: Per ad, per minute
+    kind: store
+    icon: chart
+    x: 1180
+    y: 320
+    w: 170
+    stop: data-warehousing
+  edges:
+  - id: u-a
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 120
+    - - 290.0
+      - 120
+    label:
+      text: ads shown
+      x: 200
+      y: 102
+      anchor: middle
+  - id: u-c
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: click
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: a-q
+    pts:
+    - - 470.0
+      - 120
+    - - 560.0
+      - 120
+  - id: c-c
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+  - id: q-j
+    pts:
+    - - 740.0
+      - 120
+    - - 920
+      - 120
+    - - 920
+      - 287.0
+    label:
+      text: query
+      x: 830
+      y: 102
+      anchor: middle
+  - id: c-j
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: click
+      x: 785
+      y: 302
+      anchor: middle
+  - id: j-i
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 487.0
+    label:
+      text: already joined?
+      x: 936
+      y: 424
+      anchor: start
+    two: true
+  - id: j-c
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+    label:
+      text: joined
+      x: 1052
+      y: 302
+      anchor: middle
+flows:
+- id: show
+  name: Show and click
+  steps:
+  - text: The ad server shows ads for a search and logs them under a query ID.
+    edges:
+    - u-a
+    - a-q
+  - text: A click goes to the tracker, which logs it with that query ID and redirects at once.
+    edges:
+    - u-c
+    - c-c
+- id: join
+  name: Join and count
+  steps:
+  - text: The joiner reads each click and looks up its query to get the ad, advertiser and price.
+    edges:
+    - c-j
+    - q-j
+  - text: It checks the registry of joined click IDs. If this click is there, it is dropped.
+    edges:
+    - j-i
+  - text: Otherwise it records the ID and sends the joined event on to be counted and billed.
+    edges:
+    - j-i
+    - j-c
+- id: late
+  name: Late data and failures
+  steps:
+  - text: The query hasn't arrived yet. The joiner keeps the click and retries later.
+    edges:
+    - q-j
+    nodes:
+    - join
+  - text: Joiners run in several data centres; the shared registry means only one of them joins each click.
+    edges:
+    - j-i
+requirements:
+  features:
+  - Count impressions and clicks per ad
+  - Bill advertisers
+  - Near-real-time dashboards
+  - Filter fraudulent clicks
+  qualities:
+  - Never bill a click twice
+  - Almost every click counted within seconds
+  - Every click counted eventually
+  - Survives a data-centre outage
+numbers:
+  assumption: 'Our assumption: 10 billion ads shown and 200 million clicks a day.'
+  rows:
+  - what: Impressions
+    size: about 116,000 a second
+    how: 10 billion ÷ 86,400.
+  - what: Clicks
+    size: about 2,300 a second
+    how: 200 million ÷ 86,400. Each one is money.
+decisions:
+- title: IDs on everything
+  text: A query ID ties clicks to queries; a click ID makes counting each click once possible.
+- title: Never twice, then complete
+  text: Better to count a click a moment late than twice. Missing ones are filled in later.
+- title: Redirect first
+  text: The click tracker logs and redirects immediately; the person never waits for counting.
+breaks:
+- what: Duplicate clicks.
+  fix: Retries and double taps. The click ID registry drops repeats.
+- what: A data centre fails.
+  fix: Another continues, and the shared registry keeps counts exact.
+- what: Click fraud.
+  fix: Bots click ads. Filter suspicious patterns before billing.
+companies:
+- name: Google
+  text: Built Photon to join web search queries with clicks on ads, producing the logs used to bill advertisers.
+    It runs across data centres and survives a whole data centre failing without manual help. It guarantees no duplicates
+    in the joined output at any time, near-exact results in real time and exactly-once eventually, processing millions
+    of events a minute at peak with under 10 seconds average latency.
+  links:
+  - title: 'Photon: fault-tolerant and scalable joining of continuous data streams'
+    publisher: Google Research
+    year: '2013'
+    url: https://research.google/pubs/photon-fault-tolerant-and-scalable-joining-of-continuous-data-streams/
+    verified: true
+others: []

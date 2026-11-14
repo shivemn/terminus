@@ -1,0 +1,259 @@
+id: metrics-monitoring
+title: Design metrics and monitoring
+like:
+- Prometheus
+- Datadog
+- Uber's M3
+level: core
+summary: Every service exposes counters and timings. Collectors fetch them every few seconds, and each reading is
+  stored in a time-series database under its name and labels, heavily compressed. Dashboards query it; alert rules
+  are checked against it every minute, and an alert manager groups what fires and pages the on-call engineer. The
+  hard parts are the sheer number of series, labels that multiply them, and alerts people trust.
+stops:
+- observability
+- database-internals
+- incident-management
+- messaging
+- hash-tables
+- time-series
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: svcs
+    name: Services
+    sub: Expose counters, timings
+    kind: edge
+    icon: server
+    x: 110
+    y: 320
+    w: 190
+  - id: coll
+    name: Collectors
+    sub: Scrape every 15 s
+    kind: service
+    icon: heartbeat
+    x: 380
+    y: 320
+    stop: observability
+  - id: agg
+    name: Aggregator
+    sub: Rolls up per minute
+    kind: service
+    icon: filter
+    x: 650
+    y: 320
+    stop: messaging
+  - id: tsdb
+    name: Time-series DB
+    sub: Compressed, by label
+    kind: store
+    icon: database
+    x: 920
+    y: 320
+    stop: database-internals
+  - id: index
+    name: Label index
+    sub: Finds matching series
+    kind: store
+    icon: search
+    x: 920
+    y: 120
+    stop: hash-tables
+  - id: dash
+    name: Dashboards
+    sub: Graphs
+    kind: edge
+    icon: chart
+    x: 1180
+    y: 320
+    w: 170
+  - id: rules
+    name: Alert rules
+    sub: Checked every minute
+    kind: service
+    icon: bell
+    x: 920
+    y: 520
+    stop: incident-management
+  - id: am
+    name: Alert manager
+    sub: Groups, pages on-call
+    kind: service
+    icon: send
+    x: 1180
+    y: 520
+    w: 190
+  edges:
+  - id: c-s
+    pts:
+    - - 290.0
+      - 320
+    - - 205.0
+      - 320
+    label:
+      text: scrape
+      x: 248
+      y: 302
+      anchor: middle
+    two: true
+  - id: c-a
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: samples
+      x: 515
+      y: 302
+      anchor: middle
+  - id: a-t
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: write
+      x: 785
+      y: 302
+      anchor: middle
+  - id: t-i
+    pts:
+    - - 920
+      - 287.0
+    - - 920
+      - 153.0
+    label:
+      text: labels
+      x: 936
+      y: 224
+      anchor: start
+  - id: d-t
+    pts:
+    - - 1095.0
+      - 320
+    - - 1010.0
+      - 320
+    label:
+      text: query
+      x: 1052
+      y: 302
+      anchor: middle
+    two: true
+  - id: t-r
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 487.0
+    label:
+      text: evaluate
+      x: 936
+      y: 424
+      anchor: start
+  - id: r-am
+    pts:
+    - - 1010.0
+      - 520
+    - - 1085.0
+      - 520
+    label:
+      text: firing
+      x: 1048
+      y: 502
+      anchor: middle
+flows:
+- id: collect
+  name: Collect
+  steps:
+  - text: Every 15 seconds, collectors fetch the current counters from each service.
+    edges:
+    - c-s
+  - text: The aggregator rolls fine-grained readings up, for example per minute across all copies of a service.
+    edges:
+    - c-a
+  - text: Readings are written to the time-series database, compressed, with their labels indexed.
+    edges:
+    - a-t
+    - t-i
+- id: look
+  name: Look at a graph
+  steps:
+  - text: A dashboard asks for, say, error rate by region for the last hour.
+    edges:
+    - d-t
+  - text: The label index finds the matching series; the database returns their points.
+    edges:
+    - t-i
+    - d-t
+- id: alert
+  name: Raise an alert
+  steps:
+  - text: Each rule, such as "error rate above 1% for 5 minutes", is checked every minute.
+    edges:
+    - t-r
+  - text: When it holds, the alert manager groups related alerts, drops silenced ones, and pages on-call.
+    edges:
+    - r-am
+requirements:
+  features:
+  - Collect metrics from every service
+  - Query by name and labels
+  - Dashboards
+  - Alerts that page the right person
+  qualities:
+  - Seconds from event to graph
+  - Cheap to keep months of data
+  - Monitoring stays up when the system is down
+  - Few false alarms
+numbers:
+  assumption: 'Our assumption: 10,000 servers each exposing 1,000 series, scraped every 15 seconds.'
+  rows:
+  - what: Series
+    size: 10 million
+    how: 10,000 × 1,000. Every new label value multiplies this.
+  - what: Samples
+    size: about 670,000 a second
+    how: 10 million ÷ 15 seconds.
+  - what: Storage
+    size: about 100 GB a day
+    how: 58 billion samples a day at under 2 bytes each after compression.
+decisions:
+- title: Pull, not push
+  text: The collector decides when to fetch, so a flood of data can't overwhelm it, and a target that stops answering
+    is itself a signal.
+- title: Store by labels
+  text: A metric name plus labels like region and status lets one query slice the data any way.
+- title: Compress hard
+  text: Neighbouring readings are close in time and value, so storing differences shrinks them to a byte or two.
+breaks:
+- what: A label with user IDs.
+  fix: 'One series per user: millions of series. Keep labels to a few values each.'
+- what: Alert storms.
+  fix: One outage fires hundreds of alerts. Group them and alert on symptoms, not causes.
+- what: Monitoring in the blast radius.
+  fix: If it runs on the failing system, it fails too. Run it separately.
+companies:
+- name: Prometheus
+  text: Built at SoundCloud from 2012. Stores metrics as time series identified by a name and key-value labels,
+    queried with PromQL. It pulls metrics over HTTP, each server works alone without distributed storage, and an
+    Alertmanager handles alerts.
+  links:
+  - title: Prometheus overview
+    publisher: Prometheus
+    year: '2026'
+    url: https://prometheus.io/docs/introduction/overview/
+    verified: true
+- name: Uber
+  text: Built M3, released internally in 2015 and open-sourced in 2018 as a remote storage back end for Prometheus.
+    It held over 6.6 billion time series, aggregated 500 million metrics a second and persisted 20 million a second,
+    writing each to three replicas, with compression based on Gorilla.
+  links:
+  - title: 'M3: Uber''s open source, large-scale metrics platform for Prometheus'
+    publisher: Uber
+    year: '2018'
+    url: https://www.uber.com/blog/m3/
+    verified: true
+others: []
