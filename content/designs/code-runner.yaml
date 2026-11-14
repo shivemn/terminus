@@ -1,0 +1,251 @@
+id: code-runner
+title: Design an online code runner
+like:
+- LeetCode
+- HackerRank
+- Replit
+level: core
+summary: A submission is queued, and a worker runs it inside a sandbox against hidden test cases, with strict limits
+  on time, memory and processes and no network. The sandbox is a tiny virtual machine or a user-space kernel, so
+  hostile code can't reach the host. Warm sandboxes are kept ready so runs start fast. The hard parts are isolating
+  untrusted code, fair limits, and contest spikes.
+stops:
+- systems-security
+- os-processes-memory
+- docker
+- messaging
+- api-styles
+- sql
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: user
+    name: Coder
+    sub: Submits code
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: Submission API
+    sub: Takes code, returns verdict
+    kind: service
+    icon: code
+    x: 380
+    y: 320
+    w: 200
+    stop: api-styles
+  - id: queue
+    name: Job queue
+    sub: Smooths spikes
+    kind: store
+    icon: queue
+    x: 650
+    y: 320
+    stop: messaging
+  - id: workers
+    name: Workers
+    sub: Warm sandbox pool
+    kind: service
+    icon: terminal
+    x: 920
+    y: 320
+    stop: docker
+  - id: sandbox
+    name: Sandbox
+    sub: microVM or gVisor
+    kind: service
+    icon: shield
+    x: 1180
+    y: 320
+    w: 170
+    stop: systems-security
+  - id: tests
+    name: Test cases
+    sub: Hidden inputs, outputs
+    kind: store
+    icon: file
+    x: 920
+    y: 120
+    stop: cloud-basics
+  - id: results
+    name: Results
+    sub: Verdicts, times
+    kind: store
+    icon: database
+    x: 650
+    y: 520
+    stop: sql
+  edges:
+  - id: u-api
+    pts:
+    - - 195.0
+      - 320
+    - - 280.0
+      - 320
+    label:
+      text: code
+      x: 238
+      y: 302
+      anchor: middle
+    two: true
+  - id: api-q
+    pts:
+    - - 480.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: job
+      x: 520
+      y: 302
+      anchor: middle
+  - id: q-w
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+  - id: w-tests
+    pts:
+    - - 920
+      - 287.0
+    - - 920
+      - 153.0
+    label:
+      text: fetch tests
+      x: 936
+      y: 224
+      anchor: start
+  - id: w-sb
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+    label:
+      text: run
+      x: 1052
+      y: 302
+      anchor: middle
+    two: true
+  - id: w-res
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 520
+    - - 740.0
+      - 520
+    label:
+      text: verdict
+      x: 830
+      y: 502
+      anchor: middle
+  - id: api-res
+    pts:
+    - - 380
+      - 353.0
+    - - 380
+      - 520
+    - - 560.0
+      - 520
+    label:
+      text: check
+      x: 470
+      y: 502
+      anchor: middle
+flows:
+- id: submit
+  name: Submit
+  steps:
+  - text: The coder submits code for a problem.
+    edges:
+    - u-api
+  - text: The API saves it and queues a job, answering at once with an ID.
+    edges:
+    - api-q
+- id: run
+  name: Run it
+  steps:
+  - text: A worker takes the job and fetches the hidden test cases.
+    edges:
+    - q-w
+    - w-tests
+  - text: It hands the code to a warm sandbox with limits on CPU time, memory and processes, and no network.
+    edges:
+    - w-sb
+  - text: The program runs on each test; output is compared with the expected answer.
+    edges:
+    - w-sb
+  - text: The worker records the verdict, run time and memory, and throws the sandbox away.
+    edges:
+    - w-res
+- id: result
+  name: See the result
+  steps:
+  - text: The app checks the result by its ID.
+    edges:
+    - u-api
+  - text: The API reads the verdict, with the failing test if there is one, and returns it.
+    edges:
+    - api-res
+    - u-api
+requirements:
+  features:
+  - Run code in many languages
+  - Judge against hidden tests
+  - Report time and memory used
+  - Custom input for practice runs
+  qualities:
+  - Untrusted code can never reach the host or other users
+  - Verdict in a few seconds
+  - Same code, same verdict
+  - Copes with contest spikes
+numbers:
+  assumption: 'Our assumption: 20,000 submissions a minute during a big contest, each running 50 tests for up to
+    2 seconds in total.'
+  rows:
+  - what: Submissions
+    size: about 330 a second
+    how: 20,000 ÷ 60.
+  - what: Sandboxes busy
+    size: about 700 at once
+    how: 330 a second × about 2 seconds each.
+decisions:
+- title: A real boundary
+  text: A plain container shares the host kernel. A microVM or user-space kernel adds a second wall.
+- title: Warm pools
+  text: Starting a sandbox per run is slow. Keep a pool ready and discard each after one use.
+- title: Queue, then run
+  text: Spikes wait in the queue instead of overwhelming workers.
+breaks:
+- what: Infinite loops.
+  fix: A hard time limit kills the run.
+- what: Fork bombs and huge outputs.
+  fix: Limit processes, memory, file size and output length.
+- what: Noisy neighbours.
+  fix: Runs on a busy host time differently. Pin CPUs and measure CPU time, not wall time.
+companies:
+- name: AWS
+  text: Built Firecracker so services such as AWS Lambda can run many customers safely on one host. Its KVM-based
+    microVMs emulate only five devices, boot in under 125 ms, use under 5 MiB of overhead, and up to 150 can be
+    created per second on one host.
+  links:
+  - title: Firecracker
+    publisher: Amazon Web Services
+    year: '2026'
+    url: https://firecracker-microvm.github.io/
+    verified: true
+- name: Google
+  text: Created gVisor, an application kernel written in Go that runs in user space. Its Sentry intercepts and answers
+    the system calls a program makes, and its runtime, runsc, plugs into Docker and Kubernetes.
+  links:
+  - title: What is gVisor?
+    publisher: gVisor
+    year: '2026'
+    url: https://gvisor.dev/docs/
+    verified: true
+others: []

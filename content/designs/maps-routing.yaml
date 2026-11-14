@@ -1,0 +1,271 @@
+id: maps-routing
+title: Design maps and routing
+like:
+- Google Maps
+- Ola Maps
+- Uber
+level: advanced
+summary: Roads are stored as a graph. A routing service finds a few good paths between two points, and a model predicts
+  how long each will take from live traffic and the usual speeds for that hour. Phones on the road keep the live
+  picture fresh, and the map itself is drawn from tiles served by a CDN. The hard parts are searching a graph of
+  a whole country in milliseconds, and predicting traffic that hasn't happened yet.
+stops:
+- graph-algorithms
+- machine-learning
+- caching
+- messaging
+- data-warehousing
+- partitioning-replication
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: app
+    name: App
+    sub: Asks for a route
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: route
+    name: Routing service
+    sub: Finds good paths
+    kind: service
+    icon: route
+    x: 380
+    y: 320
+    stop: graph-algorithms
+  - id: graph
+    name: Road graph
+    sub: Roads, turns, limits
+    kind: store
+    icon: link
+    x: 380
+    y: 120
+    stop: partitioning-replication
+  - id: eta
+    name: ETA model
+    sub: Predicts speeds
+    kind: service
+    icon: brain
+    x: 650
+    y: 320
+    stop: machine-learning
+  - id: live
+    name: Live traffic
+    sub: Speeds right now
+    kind: service
+    icon: chart
+    x: 920
+    y: 320
+    stop: messaging
+  - id: hist
+    name: Traffic history
+    sub: Usual speed by hour
+    kind: store
+    icon: database
+    x: 920
+    y: 520
+    stop: data-warehousing
+  - id: cars
+    name: Phones on the road
+    sub: Anonymised speeds
+    kind: edge
+    icon: phone
+    x: 1180
+    y: 320
+    w: 170
+  - id: tiles
+    name: Map tiles
+    sub: From a CDN
+    kind: external
+    icon: globe
+    x: 380
+    y: 520
+    stop: caching
+  edges:
+  - id: app-route
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: A to B
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: route-graph
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 153.0
+    label:
+      text: search
+      x: 396
+      y: 224
+      anchor: start
+  - id: route-eta
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: how long?
+      x: 515
+      y: 302
+      anchor: middle
+  - id: eta-live
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: now
+      x: 785
+      y: 302
+      anchor: middle
+  - id: eta-hist
+    pts:
+    - - 650
+      - 353.0
+    - - 650
+      - 520
+    - - 830.0
+      - 520
+    label:
+      text: usual for this hour
+      x: 740
+      y: 502
+      anchor: middle
+  - id: cars-live
+    pts:
+    - - 1095.0
+      - 320
+    - - 1010.0
+      - 320
+    label:
+      text: speeds
+      x: 1052
+      y: 302
+      anchor: middle
+  - id: live-hist
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 487.0
+    label:
+      text: saved
+      x: 936
+      y: 424
+      anchor: start
+  - id: app-tiles
+    pts:
+    - - 110
+      - 353.0
+    - - 110
+      - 520
+    - - 290.0
+      - 520
+    label:
+      text: map images
+      x: 200
+      y: 502
+      anchor: middle
+flows:
+- id: route
+  name: Get directions
+  steps:
+  - text: The app asks for a route from A to B.
+    edges:
+    - app-route
+  - text: The routing service searches the road graph for a few good candidate paths.
+    edges:
+    - route-graph
+  - text: The ETA model predicts each road's speed, from live traffic and the usual pattern for this time.
+    edges:
+    - route-eta
+    - eta-live
+    - eta-hist
+  - text: The fastest path comes back, with alternatives and arrival times.
+    edges:
+    - app-route
+- id: traffic
+  name: Keep traffic fresh
+  steps:
+  - text: Phones that are navigating share their speed, anonymised.
+    edges:
+    - cars-live
+  - text: Live traffic averages speeds on each road over the last few minutes.
+    nodes:
+    - live
+  - text: These are saved to build the usual pattern for each road and hour.
+    edges:
+    - live-hist
+- id: map
+  name: Draw the map
+  steps:
+  - text: The app downloads square map tiles for the area on screen, mostly from a CDN.
+    edges:
+    - app-tiles
+  - text: Route and traffic colours are drawn on top.
+    edges:
+    - app-route
+requirements:
+  features:
+  - Directions by car, bike, foot and transit
+  - Arrival time that accounts for traffic
+  - Re-route when traffic changes
+  - A map that pans and zooms smoothly
+  qualities:
+  - A route in well under a second
+  - Arrival times usually right
+  - Fresh within minutes
+  - Works on slow phones and networks
+numbers:
+  assumption: 'Our assumption: 100 million route requests a day on a road graph of 500 million road segments.'
+  rows:
+  - what: Route requests
+    size: about 1,200 a second
+    how: 100 million ÷ 86,400, several times higher at rush hour.
+  - what: Graph in memory
+    size: tens of GB
+    how: 500 million segments × about 50 bytes, split by region across servers.
+  - what: Speed updates
+    size: hundreds of thousands a second
+    how: Millions of navigating phones each reporting every few seconds.
+decisions:
+- title: Precompute shortcuts
+  text: A plain shortest-path search over a whole country is too slow. Precomputed shortcuts between major roads
+    make it milliseconds.
+- title: History plus live
+  text: Live data says what is happening; history says what usually happens next. Predictions need both.
+- title: Tiles from a CDN
+  text: The map looks the same for everyone, so it is drawn once and cached everywhere.
+breaks:
+- what: A sudden crash.
+  fix: History says the road is clear. Live speeds must override it within minutes.
+- what: Patterns change.
+  fix: After lockdowns or a new road, old history misleads. Weight recent weeks more.
+- what: Everyone takes the same detour.
+  fix: Sending all drivers one way jams it. Spread suggestions across alternatives.
+companies:
+- name: Google Maps
+  text: Over 1 billion kilometres are driven with it each day. It combines historical traffic patterns with live
+    conditions using machine learning; ETAs were accurate for over 97% of trips, and Graph Neural Networks built
+    with DeepMind cut the inaccurate ones further. When the pandemic changed traffic, it began favouring patterns
+    from the last two to four weeks. Routes also weigh road quality, road size and official data such as speed limits
+    and closures.
+  links:
+  - title: 'Google Maps 101: how AI helps predict traffic and determine routes'
+    publisher: Google
+    year: '2020'
+    url: https://blog.google/products/maps/google-maps-101-how-ai-helps-predict-traffic-and-determine-routes/
+    verified: true
+others: []

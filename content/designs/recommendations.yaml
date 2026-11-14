@@ -1,0 +1,312 @@
+id: recommendations
+title: Design a recommendation system
+like:
+- YouTube
+- Netflix
+- Flipkart
+level: advanced
+summary: 'Recommending from millions of items happens in two steps: candidate generation quickly picks a few hundred
+  that might fit, then a ranking model scores each one carefully. Models are trained offline on what people watched
+  or skipped, while recent activity is updated nearline so the home screen reacts within minutes. The hard parts
+  are the size of the catalogue, freshness, and learning from what people actually did.'
+stops:
+- machine-learning
+- embeddings
+- deep-learning
+- messaging
+- redis
+- spark
+diagram:
+  width: 1240
+  height: 650
+  nodes:
+  - id: user
+    name: Home screen
+    sub: Shows picks
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: Recs API
+    sub: Builds the page
+    kind: service
+    icon: server
+    x: 380
+    y: 320
+    stop: api-styles
+  - id: cand
+    name: Candidates
+    sub: Hundreds from millions
+    kind: service
+    icon: filter
+    x: 650
+    y: 320
+    stop: embeddings
+  - id: index
+    name: Embedding index
+    sub: Nearest items
+    kind: store
+    icon: search
+    x: 650
+    y: 120
+  - id: rank
+    name: Ranking
+    sub: Scores each one
+    kind: service
+    icon: brain
+    x: 920
+    y: 320
+    stop: machine-learning
+  - id: events
+    name: Events
+    sub: Watched, skipped
+    kind: store
+    icon: queue
+    x: 380
+    y: 520
+    stop: messaging
+  - id: recent
+    name: Recent activity
+    sub: Updated in minutes
+    kind: store
+    icon: cache
+    x: 650
+    y: 520
+    stop: redis
+  - id: train
+    name: Offline training
+    sub: Models, embeddings
+    kind: service
+    icon: gpu
+    x: 920
+    y: 520
+    stop: deep-learning
+  edges:
+  - id: u-api
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    two: true
+  - id: api-cand
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: for this person
+      x: 515
+      y: 302
+      anchor: middle
+  - id: cand-index
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 153.0
+    label:
+      text: nearest items
+      x: 666
+      y: 224
+      anchor: start
+  - id: cand-rank
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: candidates
+      x: 785
+      y: 302
+      anchor: middle
+  - id: rank-api
+    pts:
+    - - 920
+      - 287.0
+    - - 920
+      - 40
+    - - 380
+      - 40
+    - - 380
+      - 287.0
+    label:
+      text: ranked list
+      x: 520
+      y: 31
+      anchor: middle
+  - id: u-events
+    pts:
+    - - 110
+      - 353.0
+    - - 110
+      - 520
+    - - 290.0
+      - 520
+    label:
+      text: what they did
+      x: 200
+      y: 502
+      anchor: middle
+  - id: ev-recent
+    pts:
+    - - 470.0
+      - 520
+    - - 560.0
+      - 520
+    label:
+      text: nearline
+      x: 515
+      y: 502
+      anchor: middle
+  - id: recent-cand
+    pts:
+    - - 650
+      - 487.0
+    - - 650
+      - 353.0
+    label:
+      text: history
+      x: 666
+      y: 424
+      anchor: start
+  - id: ev-train
+    pts:
+    - - 380
+      - 553.0
+    - - 380
+      - 610
+    - - 920
+      - 610
+    - - 920
+      - 553.0
+    label:
+      text: logged
+      x: 650
+      y: 601
+      anchor: middle
+  - id: train-rank
+    pts:
+    - - 920
+      - 487.0
+    - - 920
+      - 353.0
+    label:
+      text: new models
+      x: 936
+      y: 424
+      anchor: start
+  - id: train-index
+    pts:
+    - - 1010.0
+      - 520
+    - - 1110
+      - 520
+    - - 1110
+      - 120
+    - - 740.0
+      - 120
+    label:
+      text: new embeddings
+      x: 1126
+      y: 324
+      anchor: start
+flows:
+- id: home
+  name: Open the home screen
+  steps:
+  - text: The app asks for recommendations.
+    edges:
+    - u-api
+  - text: Candidate generation uses the person's recent history to pick a few hundred items from millions.
+    edges:
+    - api-cand
+    - recent-cand
+  - text: It finds items close to their taste in an embedding index.
+    edges:
+    - cand-index
+  - text: A larger ranking model scores each candidate.
+    edges:
+    - cand-rank
+  - text: The ranked list comes back and the page is built.
+    edges:
+    - rank-api
+    - u-api
+- id: learn
+  name: Learn from what they did
+  steps:
+  - text: Every watch, click and skip is logged as an event.
+    edges:
+    - u-events
+  - text: Recent activity is updated within minutes, so the next visit reacts.
+    edges:
+    - ev-recent
+  - text: Offline training retrains the models and item embeddings on the full history.
+    edges:
+    - ev-train
+  - text: New models and embeddings are pushed out.
+    edges:
+    - train-rank
+    - train-index
+requirements:
+  features:
+  - A personal home screen
+  - '"Because you watched" rows'
+  - New items get a chance
+  - React to what you just did
+  qualities:
+  - Page built in about 200 ms
+  - Fresh within minutes
+  - Learns from real behaviour
+  - Cheap enough to run for everyone
+numbers:
+  assumption: 'Our assumption: 100 million home-screen loads a day and a catalogue of 10 million items.'
+  rows:
+  - what: Page loads
+    size: about 1,200 a second
+    how: 100 million ÷ 86,400, much higher in the evening.
+  - what: Items scored
+    size: about 500 per load
+    how: Ranking all 10 million would be 20,000 times the work.
+  - what: Events
+    size: tens of thousands a second
+    how: Every view, click and skip from every session.
+decisions:
+- title: Two stages
+  text: A cheap model narrows millions to hundreds; an expensive one ranks only those.
+- title: Offline, nearline, online
+  text: Heavy training runs offline, recent activity updates nearline, and only the final scoring runs while you
+    wait.
+- title: Learn from behaviour
+  text: What people watch to the end says more than what they click.
+breaks:
+- what: A brand-new item.
+  fix: No one has watched it, so nothing recommends it. Mix in some new items on purpose.
+- what: A brand-new user.
+  fix: No history. Start with popular items and learn fast.
+- what: Feedback loops.
+  fix: People can only watch what is shown, so the model learns its own habits. Explore a little.
+companies:
+- name: YouTube
+  text: 'Splits recommendation into the classic two stages: a deep candidate generation model, then a separate deep
+    ranking model, described in a 2016 paper on what it calls one of the largest industrial recommendation systems.'
+  links:
+  - title: Deep neural networks for YouTube recommendations
+    publisher: Google Research
+    year: '2016'
+    url: https://research.google/pubs/deep-neural-networks-for-youtube-recommendations/
+    verified: true
+- name: Netflix
+  text: Splits computation into offline, nearline and online. Online responds to recent events but must answer in
+    real time, which limits how much it can compute; offline has fewer limits on data and complexity.
+  links:
+  - title: System architectures for personalization and recommendation
+    publisher: Netflix Technology Blog
+    year: '2013'
+    url: https://netflixtechblog.com/system-architectures-for-personalization-and-recommendation-e081aa94b5d8
+    verified: true
+others: []

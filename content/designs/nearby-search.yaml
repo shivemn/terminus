@@ -1,0 +1,232 @@
+id: nearby-search
+title: Design nearby search
+like:
+- Tinder
+- Swiggy
+- Zomato
+level: core
+summary: The world is cut into cells, and each cell belongs to a shard that indexes only the people or places inside
+  it. A search turns the circle around you into a list of cells, asks only the shards that cover them, then ranks
+  what comes back. When someone moves to a new cell, they are moved to that shard. The hard parts are cities far
+  busier than villages, and people who keep moving.
+stops:
+- trees-heaps
+- elasticsearch
+- partitioning-replication
+- api-styles
+- messaging
+- machine-learning
+diagram:
+  width: 1040
+  height: 650
+  nodes:
+  - id: app
+    name: App
+    sub: Near me
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: Search API
+    sub: Place, radius, filters
+    kind: service
+    icon: search
+    x: 380
+    y: 320
+    stop: api-styles
+  - id: cells
+    name: Cell lookup
+    sub: Which cells cover the circle
+    kind: service
+    icon: pin
+    x: 380
+    y: 120
+    w: 200
+    stop: trees-heaps
+  - id: shards
+    name: Geoshards
+    sub: One index per region
+    kind: store
+    icon: database
+    x: 650
+    y: 320
+    stop: elasticsearch
+  - id: rank
+    name: Ranker
+    sub: Distance, preferences
+    kind: service
+    icon: filter
+    x: 920
+    y: 320
+    stop: machine-learning
+  - id: moves
+    name: Location updates
+    sub: Moves people between shards
+    kind: service
+    icon: sync
+    x: 650
+    y: 520
+    w: 210
+    stop: messaging
+  edges:
+  - id: app-api
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: within 10 km
+      x: 242
+      y: 302
+      anchor: middle
+  - id: api-cells
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 153.0
+    label:
+      text: cells
+      x: 396
+      y: 224
+      anchor: start
+  - id: api-shards
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: query
+      x: 515
+      y: 302
+      anchor: middle
+  - id: shards-rank
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: matches
+      x: 785
+      y: 302
+      anchor: middle
+  - id: rank-app
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 610
+    - - 140
+      - 610
+    - - 140
+      - 353.0
+    label:
+      text: results
+      x: 530
+      y: 601
+      anchor: middle
+  - id: app-moves
+    pts:
+    - - 80
+      - 353.0
+    - - 80
+      - 520
+    - - 545.0
+      - 520
+    label:
+      text: I moved
+      x: 300
+      y: 511
+      anchor: middle
+  - id: moves-shards
+    pts:
+    - - 650
+      - 487.0
+    - - 650
+      - 353.0
+    label:
+      text: re-index
+      x: 666
+      y: 424
+      anchor: start
+flows:
+- id: search
+  name: Search nearby
+  steps:
+  - text: The app asks for matches within a radius.
+    edges:
+    - app-api
+  - text: The circle is turned into a short list of cells, and so the few shards that hold them.
+    edges:
+    - api-cells
+  - text: Only those shards are queried, in parallel.
+    edges:
+    - api-shards
+  - text: Matches are ranked by distance and preferences and sent back.
+    edges:
+    - shards-rank
+    - rank-app
+- id: move
+  name: Someone moves
+  steps:
+  - text: The app reports a new location now and then, not every second.
+    edges:
+    - app-moves
+  - text: If they crossed into a cell owned by another shard, they are removed from the old one and added to the
+      new.
+    edges:
+    - moves-shards
+requirements:
+  features:
+  - Find people or places within a radius
+  - Filter by preferences
+  - Results update as people move
+  - Works worldwide
+  qualities:
+  - Results in about 100 ms
+  - Busy cities stay fast
+  - Location kept private
+  - Cheap per query
+numbers:
+  assumption: 'Our assumption: 50 million active users, 5,000 searches a second, and a location update for each
+    user every few minutes.'
+  rows:
+  - what: Location updates
+    size: about 280,000 a second
+    how: 50 million ÷ 180 seconds. Most stay in the same cell and need no shard move.
+  - what: Shards per search
+    size: one to a few
+    how: A 10 km circle touches only the shards for that area.
+decisions:
+- title: Cells on a curve
+  text: Numbering cells along a space-filling curve keeps nearby places in nearby cells, so a region is a few ranges
+    of numbers.
+- title: Shards by load, not by area
+  text: A city needs small shards; an ocean can be one huge one. Balance the work, not the map.
+- title: Report moves sparingly
+  text: Sending a location every second would be most of the traffic. Every few minutes is enough.
+breaks:
+- what: A crowded event.
+  fix: One cell suddenly holds a stadium. Split hot shards, or add replicas.
+- what: Searches on a boundary.
+  fix: The circle crosses two shards. Query both and merge.
+- what: Someone moves between shards.
+  fix: For a moment they are in both or neither. Make the move one ordered operation.
+companies:
+- name: Tinder
+  text: Began with one Elasticsearch cluster holding one index with five shards. Because recommendations are limited
+    to 100 miles, it split the index into geoshards, using Google's S2 library, which numbers cells along a Hilbert
+    curve so nearby cells stay close. It sized geoshards by a load score so each carries similar work; 40 to 100
+    geoshards worldwide gave a good balance.
+  links:
+  - title: 'Geosharded recommendations part 1: sharding approach'
+    publisher: Tinder Tech Blog
+    year: '2019'
+    url: https://medium.com/tinder/geosharded-recommendations-part-1-sharding-approach-d5d54e0ec77a
+    verified: true
+others: []

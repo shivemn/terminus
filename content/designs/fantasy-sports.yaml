@@ -1,0 +1,255 @@
+id: fantasy-sports
+title: Design a fantasy sports app
+like:
+- Dream11
+- Fantasy Premier League
+- ESPN Fantasy
+level: advanced
+summary: People pick teams and join contests, mostly in the minutes before a match starts. During the match, a live
+  feed of events turns into points for each player, each team's score is the sum of its players, and leaderboards
+  are re-sorted. The hard parts are a traffic spike that arrives on a timetable, contests that fill to an exact
+  size, and leaderboards with millions of entries changing every ball.
+stops:
+- scaling-load-balancing
+- redis
+- concurrency
+- messaging
+- sql
+- cloud-architecture
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: users
+    name: Players
+    sub: Before the deadline
+    kind: edge
+    icon: users
+    x: 110
+    y: 320
+    w: 170
+  - id: gw
+    name: API gateway
+    sub: Rate limits
+    kind: service
+    icon: gateway
+    x: 380
+    y: 320
+    stop: scaling-load-balancing
+  - id: scaler
+    name: Scaler
+    sub: Scales before each match
+    kind: service
+    icon: clock
+    x: 380
+    y: 120
+    stop: cloud-architecture
+  - id: teams
+    name: Team service
+    sub: Saved teams
+    kind: store
+    icon: edit
+    x: 650
+    y: 120
+    stop: sql
+  - id: contests
+    name: Contests
+    sub: Join until full
+    kind: service
+    icon: trophy
+    x: 650
+    y: 320
+    stop: concurrency
+  - id: board
+    name: Leaderboards
+    sub: Sorted by points
+    kind: store
+    icon: chart
+    x: 920
+    y: 320
+    stop: redis
+  - id: scoring
+    name: Scoring
+    sub: Points per event
+    kind: service
+    icon: counter
+    x: 920
+    y: 520
+    stop: messaging
+  - id: feed
+    name: Live match feed
+    sub: Every ball, every goal
+    kind: external
+    icon: heartbeat
+    x: 1180
+    y: 520
+    w: 190
+  edges:
+  - id: u-gw
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    two: true
+  - id: sc-gw
+    pts:
+    - - 380
+      - 153.0
+    - - 380
+      - 287.0
+    label:
+      text: scale up
+      x: 396
+      y: 224
+      anchor: start
+  - id: gw-teams
+    pts:
+    - - 470.0
+      - 305
+    - - 515
+      - 305
+    - - 515
+      - 120
+    - - 560.0
+      - 120
+    label:
+      text: save team
+      x: 531
+      y: 216
+      anchor: start
+  - id: gw-contests
+    pts:
+    - - 470.0
+      - 335
+    - - 560.0
+      - 335
+    label:
+      text: join, ranks
+      x: 515
+      y: 317
+      anchor: middle
+    two: true
+  - id: c-board
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: entries
+      x: 785
+      y: 302
+      anchor: middle
+    two: true
+  - id: feed-sc
+    pts:
+    - - 1085.0
+      - 520
+    - - 1010.0
+      - 520
+    label:
+      text: events
+      x: 1048
+      y: 502
+      anchor: middle
+  - id: sc-board
+    pts:
+    - - 920
+      - 487.0
+    - - 920
+      - 353.0
+    label:
+      text: new points
+      x: 936
+      y: 424
+      anchor: start
+flows:
+- id: before
+  name: Before the match
+  steps:
+  - text: A forecast of how many people will be online sets capacity, and services scale up an hour before the match.
+    edges:
+    - sc-gw
+  - text: People save teams, most of them in the last few minutes.
+    edges:
+    - u-gw
+    - gw-teams
+  - text: Joining a contest takes one seat with an atomic count, so a contest never overfills.
+    edges:
+    - gw-contests
+    - c-board
+- id: during
+  name: During the match
+  steps:
+  - text: 'The live feed sends each event: a run, a wicket, a goal.'
+    edges:
+    - feed-sc
+  - text: Scoring turns it into points for the players involved; a team's score is the sum of its players.
+    nodes:
+    - scoring
+  - text: Leaderboards are re-sorted every few seconds rather than after every single event.
+    edges:
+    - sc-board
+  - text: People refreshing their rank read the sorted board.
+    edges:
+    - u-gw
+    - gw-contests
+    - c-board
+requirements:
+  features:
+  - Pick a team within a budget
+  - Join contests of a set size
+  - Live points and ranks
+  - Lock teams at the deadline
+  qualities:
+  - Survives the spike before the deadline
+  - Contests never overfill
+  - Ranks update within seconds
+  - Points are always correct in the end
+numbers:
+  assumption: 'Our assumption: 10 million people online at the deadline, saving 50 million teams in the last 30
+    minutes.'
+  rows:
+  - what: Team saves
+    size: about 28,000 a second
+    how: 50 million ÷ 1,800 seconds, and far more in the final minute.
+  - what: Teams rescored
+    size: 50 million every few seconds
+    how: Each event changes a few players' points, which changes every team holding them.
+  realScale:
+  - name: Dream11
+    text: saw 5.5 million concurrent users in one IPL match in 2020, and scaled data stores in advance from traffic
+      predictions.
+    source:
+      title: How Dream11 manages traffic surge
+      publisher: Dream Sports
+      year: '2020'
+      url: https://www.dreamsports.group/media-and-blog/how-dream11-manages-traffic-surge
+      verified: true
+decisions:
+- title: Scale on a timetable
+  text: Matches are scheduled, so capacity can be added before the rush instead of reacting to it.
+- title: Score players, not teams
+  text: Points are stored per player; a team's total is a sum, so one event is a few updates, not millions.
+- title: Batch the leaderboard
+  text: Re-sorting after every ball is wasted work. Every few seconds feels live.
+breaks:
+- what: The deadline rush.
+  fix: If the forecast was low, the last minute fails. Keep spare capacity and queue saves.
+- what: A huge contest.
+  fix: A million entries on one sorted list. Split it, and compute exact ranks only near the top.
+- what: The feed corrects a score.
+  fix: Points must be recomputed from events, so keep the events, not just totals.
+companies:
+- name: Dream11
+  text: Built an in-house platform, Scaler, that forecasts concurrency for each match and scales services to match
+    it. Scaling time fell from multiple hours to about five minutes, so it now scales one hour before a match instead
+    of three. Written with AWS by Dream11's engineers.
+  links:
+  - title: How Dream11 uses an in-house scaling platform to scale resources on AWS
+    publisher: AWS for Games Blog
+    year: '2023'
+    url: https://aws.amazon.com/blogs/gametech/how-dream11-uses-an-in-house-scaling-platform/
+    verified: true
+others: []
