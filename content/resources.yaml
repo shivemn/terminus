@@ -1150,6 +1150,55 @@
   free: true
   medium: watch
 
+- id: bootlin-embedded-linux
+  title: Embedded Linux training materials
+  author: Bootlin
+  type: course
+  url: https://bootlin.com/training/embedded-linux/
+  free: true
+  medium: read
+  note: The slides and labs are free. The labs use a real board, such as a BeagleBone Black or STM32MP1 Discovery.
+
+- id: bootlin-kernel
+  title: Linux kernel and driver development training materials
+  author: Bootlin
+  type: course
+  url: https://bootlin.com/training/kernel/
+  free: true
+  medium: read
+
+- id: buildroot-manual
+  title: The Buildroot user manual
+  author: Buildroot
+  type: site
+  url: https://buildroot.org/downloads/manual/manual.html
+  free: true
+  medium: read
+
+- id: yocto-quick-build
+  title: Yocto Project Quick Build
+  author: The Yocto Project
+  type: site
+  url: https://docs.yoctoproject.org/brief-yoctoprojectqs/index.html
+  free: true
+  medium: practice
+
+- id: memfault-zero-to-main
+  title: 'From Zero to main(): Bare metal C'
+  author: Memfault, Interrupt blog
+  type: site
+  url: https://interrupt.memfault.com/blog/zero-to-main-1
+  free: true
+  medium: read
+
+- id: memfault-linker-scripts
+  title: 'From Zero to main(): Demystifying Firmware Linker Scripts'
+  author: Memfault, Interrupt blog
+  type: site
+  url: https://interrupt.memfault.com/blog/how-to-write-linker-scripts-for-firmware
+  free: true
+  medium: read
+
 - id: portswigger-academy
   title: Web Security Academy
   author: PortSwigger

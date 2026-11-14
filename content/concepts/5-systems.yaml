@@ -420,9 +420,19 @@
       detail: Embedded C, toolchains, flashing and debugging.
     - topic: Power
       detail: Sleep modes and battery life.
+    - topic: Startup code and linker scripts
+      detail: What runs between reset and main() (copying data, zeroing memory, setting the stack) and how a linker script places code and data in flash and RAM.
   resources:
     - resource: valvano-ebook
       locator: "Chapters 1–10"
+      verified: true
+    - resource: memfault-zero-to-main
+      locator: 'From Zero to main(): Bare metal C'
+      role: deep-dive
+      verified: true
+    - resource: memfault-linker-scripts
+      locator: 'From Zero to main(): Demystifying Firmware Linker Scripts'
+      role: deep-dive
       verified: true
     - resource: nptel-embedded
       locator: "The full course"
@@ -484,6 +494,49 @@
       verified: true
     - resource: wokwi
       locator: "ESP32 projects using FreeRTOS tasks and queues"
+      verified: true
+
+- id: embedded-linux
+  title: Embedded Linux
+  area: systems
+  summary: 'Running Linux on a custom board: cross-compiling, the boot sequence with U-Boot, device trees, kernel modules, and building a whole system image with Buildroot or Yocto.'
+  hours: 40
+  requires: [c-and-memory, os-processes-memory]
+  recommends: [microcontrollers, linux-admin, shell-tools]
+  covers:
+    - topic: How an embedded Linux system fits together
+      detail: Bootloader, kernel, device tree and root filesystem, and how this differs from a microcontroller with no operating system.
+    - topic: Cross-compiling
+      detail: Building on a PC for an ARM board, and choosing and using a cross toolchain.
+    - topic: Booting with U-Boot
+      detail: The boot sequence from power-on, loading the kernel and device tree, and the U-Boot command line.
+    - topic: Device trees
+      detail: Describing the board's hardware in a .dts file instead of in code, and how drivers find their devices.
+    - topic: Building the kernel
+      detail: Picking a version, configuring it for your board, and building and installing it.
+    - topic: Kernel modules and drivers
+      detail: Writing a small loadable module, and how a driver talks to hardware through the kernel's device model.
+    - topic: Root filesystem
+      detail: What a minimal one contains, BusyBox, init, and filesystems for flash and SD cards.
+    - topic: Build systems
+      detail: Producing a complete, reproducible image with Buildroot or with Yocto and its layers and recipes.
+  resources:
+    - resource: bootlin-embedded-linux
+      locator: The slides for the whole course, then the labs for a board you have
+      role: primary
+      verified: true
+      why: The training Bootlin teaches companies, with every slide and lab free to download.
+    - resource: bootlin-kernel
+      locator: 'The slides on kernel modules, the device model and Device Tree'
+      role: deep-dive
+      verified: true
+    - resource: buildroot-manual
+      locator: 'Part I, Getting started, and Part II, chapters 6 to 9'
+      role: alternative
+      verified: true
+    - resource: yocto-quick-build
+      locator: The whole guide, then Creating Your Own General Layer
+      role: alternative
       verified: true
 
 - id: project-embedded

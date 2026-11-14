@@ -772,6 +772,12 @@
   extends: embedded-engineer
   search: "embedded c"
   summary: "Writes C for microcontrollers: drivers, peripherals and bare-metal applications."
+- id: embedded-linux-engineer
+  title: "Embedded Linux engineer"
+  extends: embedded-engineer
+  search: "embedded linux"
+  adds: [embedded-linux, linux-admin]
+  summary: "Brings up Linux on custom boards: bootloaders, device trees, kernel drivers and build systems like Yocto and Buildroot."
 
 # Enterprise IT: SAP modules. Most hire through IT services firms; the module
 # you're placed in decides most of what you learn on the job.

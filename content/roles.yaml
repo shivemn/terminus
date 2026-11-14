@@ -715,7 +715,7 @@
   tiers:
     hire: [c-and-memory, cpp, microcontrollers, embedded-protocols, rtos, digital-logic, computer-architecture, testing-debugging, git, project-embedded]
     firstYear: [linux-admin, pcb-design, programming-basics, os-processes-memory, concurrency]
-    extra: [networking]
+    extra: [networking, embedded-linux]
   evidence:
     postings: 30
     region: India, entry level
