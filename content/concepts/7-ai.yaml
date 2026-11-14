@@ -684,8 +684,8 @@
 - id: ai-agents
   title: AI agents and tool use
   area: ai
-  summary: Models that call tools in a loop to finish a task. When a fixed workflow is better, how to design tools, memory, MCP, and keeping agents reliable.
-  hours: 20
+  summary: Models that call tools in a loop to finish a task. When a fixed workflow is better, how to design tools, memory, MCP and A2A, and running agents safely in production.
+  hours: 24
   requires: [llm-apis]
   recommends: [python-depth, llm-evaluation]
   covers:
@@ -701,6 +701,8 @@
       detail: Short-term conversation state, long-term memory in a store, and keeping context small.
     - topic: Model Context Protocol
       detail: Exposing tools and data to any agent through MCP servers, and using existing ones.
+    - topic: Agent to agent (A2A)
+      detail: 'The open protocol for agents built by different teams to work together: Agent Cards that say what an agent can do, and tasks it can hand to another agent. MCP connects an agent to tools; A2A connects agents to each other.'
     - topic: Frameworks
       detail: LangGraph, LlamaIndex, smolagents or Pydantic AI; learn one, and know what it hides.
     - topic: Multi-agent systems
@@ -708,7 +710,17 @@
     - topic: Human in the loop
       detail: Approval steps before actions that spend money, send messages or change data.
     - topic: Reliability
-      detail: Retries, timeouts, checkpoints so long tasks survive crashes, and budgets on steps and tokens.
+      detail: Retries, timeouts, and checkpoints so long tasks survive crashes.
+    - topic: 'In production: permissions outside the model'
+      detail: Give each tool the least access it needs and enforce it in the systems it calls, acting as the user who asked, never relying on instructions in the prompt.
+    - topic: 'In production: budgets'
+      detail: Hard caps on steps, tokens, time and money, so a confused agent stops instead of looping.
+    - topic: 'In production: safe retries'
+      detail: Tools that can be retried without sending, paying or writing twice, using idempotency keys.
+    - topic: 'In production: checking it is done'
+      detail: Verify the result end to end, as a user would, before the agent reports success.
+    - topic: 'In production: traces'
+      detail: Record every model call and tool call as spans, so a bad run can be replayed and understood.
     - topic: Evaluating agents
       detail: Task success rates, and checking each step of a trajectory, not just the final answer.
   resources:
@@ -728,6 +740,22 @@
     - resource: hf-agents-course
       locator: Unit 1 on agent fundamentals, then the framework unit you plan to use
       role: primary
+      verified: true
+    - resource: a2a-protocol
+      locator: 'What is A2A?, A2A and MCP, and Life of a Task, then the Python quickstart'
+      role: deep-dive
+      verified: true
+    - resource: owasp-llm-top10
+      locator: 'LLM06:2025 Excessive Agency, the prevention and mitigation strategies'
+      role: deep-dive
+      verified: true
+    - resource: anthropic-long-running-agents
+      locator: 'The whole post, especially Testing and Agent failure modes and solutions'
+      role: deep-dive
+      verified: true
+    - resource: otel-genai-semconv
+      locator: 'docs/gen-ai: agent spans and execute-tool spans'
+      role: deep-dive
       verified: true
 
 - id: fine-tuning

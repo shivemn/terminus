@@ -3730,6 +3730,31 @@
   free: true
   medium: read
 
+- id: a2a-protocol
+  title: Agent2Agent (A2A) Protocol documentation and specification
+  author: A2A Project, Linux Foundation
+  type: site
+  url: https://a2a-protocol.org/latest/
+  free: true
+  medium: read
+  short: "A2A"
+
+- id: anthropic-long-running-agents
+  title: Effective harnesses for long-running agents
+  author: Anthropic
+  type: site
+  url: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+  free: true
+  medium: read
+
+- id: otel-genai-semconv
+  title: OpenTelemetry semantic conventions for generative AI
+  author: OpenTelemetry
+  type: site
+  url: https://github.com/open-telemetry/semantic-conventions-genai
+  free: true
+  medium: read
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face
