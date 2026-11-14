@@ -1,0 +1,266 @@
+id: rate-limiter
+title: Design a rate limiter
+like:
+- Stripe
+- Cloudflare
+- GitHub
+level: starter
+summary: 'Every request passes a check at the gateway: find the rule for this client, add one to its counter for
+  the current window, and compare. Counters live in a shared, sharded Redis so the limit holds across servers. Clients
+  already over the limit are remembered locally, so blocking costs nothing. The hard parts are the counting algorithm,
+  where the counts live, and what happens when the limiter itself fails.'
+stops:
+- scaling-load-balancing
+- redis
+- hash-tables
+- reliability-patterns
+- distributed-systems
+- rest-apis
+diagram:
+  width: 1110
+  height: 620
+  nodes:
+  - id: client
+    name: API clients
+    sub: Keys, users, IPs
+    kind: edge
+    icon: users
+    x: 110
+    y: 340
+    w: 170
+  - id: gw
+    name: API gateway
+    sub: Checks every request
+    kind: service
+    icon: shield
+    x: 380
+    y: 340
+    stop: scaling-load-balancing
+  - id: api
+    name: API servers
+    sub: Do the real work
+    kind: service
+    icon: server
+    x: 690
+    y: 340
+    stop: rest-apis
+  - id: counters
+    name: Counter store
+    sub: Redis, by client
+    kind: store
+    icon: database
+    x: 690
+    y: 130
+    stop: redis
+  - id: local
+    name: Local block list
+    sub: In each gateway
+    kind: store
+    icon: cache
+    x: 380
+    y: 550
+    stop: caching
+  - id: rules
+    name: Rules config
+    sub: Limits per plan
+    kind: store
+    icon: file
+    x: 690
+    y: 550
+  - id: alerts
+    name: Metrics
+    sub: 429s, near limits
+    kind: external
+    icon: chart
+    x: 1010
+    y: 130
+  edges:
+  - id: c-gw
+    pts:
+    - - 195.0
+      - 340
+    - - 290.0
+      - 340
+    label:
+      text: request / 429
+      x: 242
+      y: 322
+      anchor: middle
+    two: true
+  - id: gw-api
+    pts:
+    - - 470.0
+      - 340
+    - - 600.0
+      - 340
+    label:
+      text: allowed
+      x: 535
+      y: 322
+      anchor: middle
+    two: true
+  - id: gw-c
+    pts:
+    - - 420
+      - 307.0
+    - - 420
+      - 130
+    - - 600.0
+      - 130
+    label:
+      text: add one, read count
+      x: 510
+      y: 112
+      anchor: middle
+  - id: gw-local
+    pts:
+    - - 380
+      - 373.0
+    - - 380
+      - 517.0
+    label:
+      text: blocked?
+      x: 396
+      y: 449
+      anchor: start
+  - id: rules-gw
+    pts:
+    - - 690
+      - 517.0
+    - - 690
+      - 450
+    - - 430
+      - 450
+    - - 430
+      - 373.0
+    label:
+      text: rules, cached
+      x: 560
+      y: 441
+      anchor: middle
+  - id: c-alerts
+    pts:
+    - - 780.0
+      - 130
+    - - 920.0
+      - 130
+    label:
+      text: counts
+      x: 850
+      y: 112
+      anchor: middle
+flows:
+- id: under
+  name: A request under the limit
+  steps:
+  - text: A client calls POST /v1/charges with its API key.
+    edges:
+    - c-gw
+  - text: The gateway checks its local block list. This client isn't on it.
+    edges:
+    - gw-local
+  - text: It finds the rule in memory, say 100 requests a second for this plan.
+    nodes:
+    - gw
+  - text: It adds one to the client's counter for this window and reads back the counts, in one atomic step.
+    edges:
+    - gw-c
+  - text: 'Under the limit: the request goes through with rate-limit headers added.'
+    edges:
+    - gw-api
+    - c-gw
+- id: over
+  name: A request over the limit
+  steps:
+  - text: The count comes back over the limit.
+    edges:
+    - gw-c
+  - text: The gateway adds the client to its local block list until the window resets, so its next requests skip
+      Redis.
+    edges:
+    - gw-local
+  - text: The client gets 429 with Retry-After and backs off.
+    edges:
+    - c-gw
+  - text: Counts of 429s feed dashboards and alerts.
+    edges:
+    - c-alerts
+- id: down
+  name: Redis goes down
+  steps:
+  - text: The gateway can't reach the counter store.
+    edges:
+    - gw-c
+  - text: 'It fails open: requests go through unchecked rather than the API going down with the limiter.'
+    edges:
+    - gw-api
+  - text: Local block lists still stop clients that were already blocked.
+    edges:
+    - gw-local
+requirements:
+  features:
+  - Limit each key, user or IP per window, per rule
+  - Different limits per endpoint and plan
+  - 429 with a Retry-After header
+  - Rules change without a redeploy
+  qualities:
+  - Adds a millisecond or two at most
+  - Holds across many servers
+  - Fails open if the limiter breaks
+  - Never blocks honest clients below their limit
+numbers:
+  assumption: 'Our assumption: an API serving 50,000 requests a second across 100 servers, with 10 million clients
+    a day.'
+  rows:
+  - what: Counter operations
+    size: 50,000–100,000 a second
+    how: One or two per request.
+  - what: Counter memory
+    size: about 500 MB
+    how: 'A sliding-window counter keeps two numbers per client per rule: about 50 bytes × 10 million.'
+  - what: Redis shards
+    size: a few
+    how: Memory fits on one node; shard by client for throughput and to avoid one point of failure.
+decisions:
+- title: Sliding-window counter
+  text: Near-exact with two numbers per client. A token bucket suits APIs that should allow short bursts.
+- title: Shared counters
+  text: Counts in each server's memory would let a client get the limit once per server. A shared Redis costs one
+    round trip.
+- title: Remember blocks locally
+  text: Once a client is over the limit, every gateway caches that until the window resets, so attacks don't load
+    Redis.
+- title: Fail open
+  text: An outage of the limiter shouldn't become an outage of the API.
+breaks:
+- what: One huge client.
+  fix: Its key lands on one Redis shard. Give it a local pre-check or split its key across shards.
+- what: Users in many regions.
+  fix: Count per region instead of globally, accepting that a client could get its limit in each.
+- what: An attack from millions of IPs.
+  fix: Per-client limits don't help. You need load shedding, bot detection and limits at the network edge.
+companies:
+- name: Stripe
+  text: 'Runs four limiters: a request rate limiter (the most important), a concurrent-requests limiter, and two
+    load shedders that keep capacity for critical requests such as creating charges. They are token buckets in Redis,
+    wired in so a Redis outage never affects requests.'
+  links:
+  - title: Scaling your API with rate limiters
+    publisher: Stripe
+    year: '2017'
+    url: https://stripe.com/blog/rate-limiters
+    verified: true
+- name: Cloudflare
+  text: Counts per data centre, in memcached sharded by consistent hashing, with the sliding-window counter. Across
+    400 million requests, 0.003% were wrongly allowed or limited. Once a client is over, every server caches the
+    block.
+  links:
+  - title: How we built rate limiting capable of scaling to millions of domains
+    publisher: Cloudflare
+    year: '2017'
+    url: https://blog.cloudflare.com/counting-things-a-lot-of-different-things/
+    verified: true
+others:
+- title: Design a distributed rate limiter
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/distributed-rate-limiter

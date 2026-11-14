@@ -1,0 +1,337 @@
+id: url-shortener
+title: Design a URL shortener
+like:
+- Bitly
+- TinyURL
+level: starter
+summary: Creating a link stores a short random code next to the long URL. Opening the short link looks the code
+  up, almost always in a cache, and answers with a redirect. Each click is sent to an event log and counted later,
+  so redirects never wait for the counting. The hard parts are unique codes without coordination, a cache that absorbs
+  viral links, and abuse.
+stops:
+- rest-apis
+- sql
+- hash-tables
+- caching
+- redis
+- scaling-load-balancing
+- partitioning-replication
+- messaging
+diagram:
+  width: 1240
+  height: 560
+  nodes:
+  - id: browser
+    name: Browser
+    sub: Opens a short link
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 200
+    w: 170
+  - id: app
+    name: App or API user
+    sub: Creates links
+    kind: edge
+    icon: code
+    x: 110
+    y: 480
+    w: 170
+  - id: lb
+    name: Load balancer
+    sub: Spreads requests
+    kind: edge
+    icon: lb
+    x: 330
+    y: 340
+    stop: scaling-load-balancing
+  - id: redirect
+    name: Redirect service
+    sub: Code → long URL
+    kind: service
+    icon: link
+    x: 570
+    y: 200
+    stop: hash-tables
+  - id: links
+    name: Link service
+    sub: Makes new codes
+    kind: service
+    icon: key
+    x: 570
+    y: 480
+    stop: rest-apis
+  - id: cache
+    name: Cache
+    sub: Hot codes, Redis
+    kind: store
+    icon: cache
+    x: 830
+    y: 110
+    stop: redis
+  - id: store
+    name: Link store
+    sub: Sharded by code
+    kind: store
+    icon: database
+    x: 830
+    y: 340
+    stop: partitioning-replication
+  - id: log
+    name: Event log
+    sub: Kafka, click events
+    kind: store
+    icon: queue
+    x: 1090
+    y: 200
+    stop: messaging
+  - id: agg
+    name: Click aggregator
+    sub: Counts per day
+    kind: service
+    icon: counter
+    x: 1090
+    y: 340
+  - id: stats
+    name: Stats store
+    sub: Clicks per link
+    kind: store
+    icon: chart
+    x: 1090
+    y: 480
+  edges:
+  - id: b-lb
+    pts:
+    - - 195.0
+      - 200
+    - - 330
+      - 200
+    - - 330
+      - 307.0
+    label:
+      text: GET /aZ3kQ9x
+      x: 262
+      y: 182
+      anchor: middle
+    two: true
+  - id: a-lb
+    pts:
+    - - 195.0
+      - 480
+    - - 330
+      - 480
+    - - 330
+      - 373.0
+    label:
+      text: POST /links
+      x: 262
+      y: 462
+      anchor: middle
+    two: true
+  - id: lb-r
+    pts:
+    - - 420.0
+      - 330
+    - - 450
+      - 330
+    - - 450
+      - 200
+    - - 480.0
+      - 200
+    two: true
+  - id: lb-l
+    pts:
+    - - 420.0
+      - 350
+    - - 450
+      - 350
+    - - 450
+      - 480
+    - - 480.0
+      - 480
+    two: true
+  - id: r-cache
+    pts:
+    - - 570
+      - 167.0
+    - - 570
+      - 110
+    - - 740.0
+      - 110
+    label:
+      text: look up code
+      x: 655
+      y: 92
+      anchor: middle
+  - id: r-store
+    pts:
+    - - 620
+      - 233.0
+    - - 620
+      - 340
+    - - 740.0
+      - 340
+    label:
+      text: on a miss
+      x: 680
+      y: 322
+      anchor: middle
+  - id: r-log
+    pts:
+    - - 660.0
+      - 212
+    - - 1000.0
+      - 212
+    label:
+      text: click event, no waiting
+      x: 830
+      y: 194
+      anchor: middle
+  - id: l-store
+    pts:
+    - - 660.0
+      - 480
+    - - 780
+      - 480
+    - - 780
+      - 373.0
+    label:
+      text: insert, unique code
+      x: 720
+      y: 462
+      anchor: middle
+  - id: log-agg
+    pts:
+    - - 1090
+      - 233.0
+    - - 1090
+      - 307.0
+  - id: agg-stats
+    pts:
+    - - 1090
+      - 373.0
+    - - 1090
+      - 447.0
+flows:
+- id: create
+  name: Create a link
+  steps:
+  - text: The app sends the long URL, maybe with a custom alias.
+    edges:
+    - a-lb
+    - lb-l
+  - text: The link service checks the URL against malware and phishing blocklists, and that the user isn't over
+      their creation limit.
+    nodes:
+    - links
+  - text: It makes a random 7-character code, or uses the alias.
+    nodes:
+    - links
+  - text: It inserts the row. The unique constraint rejects a duplicate code, and the service retries with a new
+      one.
+    edges:
+    - l-store
+  - text: The app gets back the short URL.
+    edges:
+    - lb-l
+    - a-lb
+- id: open
+  name: Open a link
+  steps:
+  - text: A browser requests /aZ3kQ9x.
+    edges:
+    - b-lb
+    - lb-r
+  - text: The redirect service looks the code up in the cache. Popular links are almost always there.
+    edges:
+    - r-cache
+  - text: On a miss it reads the row from the link store and puts it in the cache.
+    edges:
+    - r-store
+    - r-cache
+  - text: The browser gets a 302 with the long URL and goes there.
+    edges:
+    - lb-r
+    - b-lb
+  - text: A click event goes to the event log without making the browser wait.
+    edges:
+    - r-log
+  - text: The aggregator adds it to that link's count for the day.
+    edges:
+    - log-agg
+    - agg-stats
+requirements:
+  features:
+  - Short link for a long URL, with an optional alias and expiry
+  - Redirect anyone who opens it
+  - Clicks per link per day for the owner
+  - A link never changes where it points
+  qualities:
+  - Redirects add only milliseconds
+  - Redirects almost never fail
+  - Reads far outnumber writes
+  - Links last for years
+  - Codes can't be guessed in sequence
+numbers:
+  assumption: 'Our assumption: 100 million new links a month, each opened 100 times on average.'
+  rows:
+  - what: New links
+    size: about 40 a second
+    how: 100 million a month ÷ 2.6 million seconds in a month.
+  - what: Redirects
+    size: 4,000 a second, 20,000 at peak
+    how: 100 opens × 40 new links a second. Traffic is bursty, so plan for five times that.
+  - what: Code length
+    size: 7 characters
+    how: 62 symbols (a–z, A–Z, 0–9), so 62⁷ ≈ 3.5 trillion codes. Five years is 6 billion links.
+  - what: Storage
+    size: about 3 TB in five years
+    how: About 500 bytes per link × 6 billion links.
+  - what: Cache
+    size: about 5 GB
+    how: The 10 million most-clicked links at 500 bytes each.
+decisions:
+- title: Random codes
+  text: A random code with a unique constraint needs no coordination and no guessable sequence. The cost is an occasional
+    retry.
+- title: 302, not 301
+  text: Browsers cache a 301 forever, so clicks would go uncounted and abusive links could not be switched off.
+- title: Count clicks later
+  text: Sending click events to a log keeps redirects fast. Stats lag by seconds or minutes, which owners accept.
+- title: Shard by code
+  text: Every lookup is by code, so sharding on a hash of it spreads load with no cross-shard queries.
+breaks:
+- what: A link goes viral.
+  fix: One cache key gets hammered. Keep a small in-memory cache on each redirect server, or copy the hot key to
+    several cache nodes.
+- what: Spammers create millions of links.
+  fix: Rate-limit creation per account and IP, check URLs against blocklists, and rescan old links.
+- what: The link store runs out of write capacity.
+  fix: Shard by a hash of the code. There are no queries across links to break.
+companies:
+- name: X (Twitter)
+  text: 'Built Snowflake in 2010 to make 64-bit IDs that sort roughly by time without coordination: a timestamp,
+    a worker number and a sequence. It rejected ticket servers, 128-bit UUIDs and ZooKeeper sequences.'
+  links:
+  - title: Announcing Snowflake
+    publisher: Twitter Engineering
+    year: '2010'
+    url: https://blog.x.com/engineering/en_us/a/2010/announcing-snowflake
+    verified: true
+- name: Instagram
+  text: 'Generated IDs inside PostgreSQL: 41 bits of milliseconds, 13 bits of logical shard and 10 bits of sequence,
+    with thousands of logical shards mapped onto far fewer servers.'
+  links:
+  - title: Sharding & IDs at Instagram
+    publisher: Instagram Engineering
+    year: '2012'
+    url: https://medium.com/instagram-engineering/sharding-ids-at-instagram-1cf5a71e5a5c
+    verified: true
+others:
+- title: Design a URL shortener like Bitly
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/bitly
+- title: 'The System Design Primer: Pastebin'
+  publisher: Donne Martin
+  url: https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/pastebin/README.md
+  licence: CC BY 4.0
