@@ -1,0 +1,314 @@
+id: live-streaming
+title: Design live sports streaming
+like:
+- JioHotstar
+- YouTube Live
+- Netflix live events
+level: advanced
+summary: 'The match is encoded at several qualities, cut into segments a few seconds long, and pushed to an origin.
+  CDN servers, many inside internet providers, fetch each segment once and serve it to everyone nearby, while each
+  player picks the quality its connection can take. The video scales on the CDN. What breaks is everything around
+  it: millions of people pressing play in the same minute at the toss.'
+stops:
+- networking
+- web-http
+- caching
+- scaling-load-balancing
+- reliability-patterns
+- observability
+- cloud-architecture
+diagram:
+  width: 1240
+  height: 700
+  nodes:
+  - id: stadium
+    name: Stadium feed
+    sub: Encoded, two paths
+    kind: edge
+    icon: camera
+    x: 110
+    y: 110
+    w: 170
+  - id: trans
+    name: Transcoder
+    sub: Several qualities
+    kind: service
+    icon: gpu
+    x: 340
+    y: 110
+  - id: pack
+    name: Packager
+    sub: 4-second segments
+    kind: service
+    icon: file
+    x: 570
+    y: 110
+    stop: web-http
+  - id: origin
+    name: Origin
+    sub: Newest segments
+    kind: store
+    icon: server
+    x: 800
+    y: 110
+    stop: cloud-architecture
+  - id: shield
+    name: CDN mid-tier
+    sub: Fetches each once
+    kind: external
+    icon: globe
+    x: 1060
+    y: 110
+    stop: caching
+  - id: edge
+    name: CDN edge
+    sub: Near viewers, in ISPs
+    kind: external
+    icon: globe
+    x: 1060
+    y: 300
+    stop: caching
+  - id: player
+    name: Players
+    sub: Phone, TV, web
+    kind: edge
+    icon: phone
+    x: 1060
+    y: 500
+  - id: api
+    name: Playback API
+    sub: Signed playlist URL
+    kind: service
+    icon: key
+    x: 800
+    y: 500
+    stop: scaling-load-balancing
+  - id: ent
+    name: Entitlements
+    sub: Cached subscriptions
+    kind: store
+    icon: cache
+    x: 560
+    y: 500
+    stop: redis
+  - id: extras
+    name: Home, scores, ads
+    sub: Off in panic mode
+    kind: service
+    icon: chart
+    x: 800
+    y: 640
+    stop: reliability-patterns
+  edges:
+  - id: s-t
+    pts:
+    - - 195.0
+      - 110
+    - - 250.0
+      - 110
+  - id: t-p
+    pts:
+    - - 430.0
+      - 110
+    - - 480.0
+      - 110
+  - id: p-o
+    pts:
+    - - 660.0
+      - 110
+    - - 710.0
+      - 110
+    label:
+      text: segments
+      x: 685
+      y: 92
+      anchor: middle
+  - id: o-sh
+    pts:
+    - - 890.0
+      - 110
+    - - 970.0
+      - 110
+  - id: sh-edge
+    pts:
+    - - 1060
+      - 143.0
+    - - 1060
+      - 267.0
+    label:
+      text: once per segment
+      x: 1076
+      y: 209
+      anchor: start
+  - id: edge-pl
+    pts:
+    - - 1060
+      - 333.0
+    - - 1060
+      - 467.0
+    label:
+      text: segments every 4 s
+      x: 1076
+      y: 404
+      anchor: start
+    two: true
+  - id: pl-api
+    pts:
+    - - 970.0
+      - 500
+    - - 890.0
+      - 500
+    label:
+      text: play
+      x: 930
+      y: 482
+      anchor: middle
+    two: true
+  - id: api-ent
+    pts:
+    - - 710.0
+      - 500
+    - - 650.0
+      - 500
+    label:
+      text: allowed?
+      x: 680
+      y: 482
+      anchor: middle
+  - id: pl-extras
+    pts:
+    - - 1060
+      - 533.0
+    - - 1060
+      - 640
+    - - 890.0
+      - 640
+    label:
+      text: home, score, ads
+      x: 975
+      y: 622
+      anchor: middle
+flows:
+- id: bat
+  name: From bat to phone
+  steps:
+  - text: The broadcast is encoded at the ground and sent to the cloud, usually over two independent paths.
+    edges:
+    - s-t
+  - text: The transcoder re-encodes it at several bitrates and resolutions.
+    edges:
+    - t-p
+  - text: The packager cuts each quality into segments of a few seconds and updates the playlists.
+    edges:
+    - p-o
+  - text: The CDN mid-tier fetches each new segment once from the origin.
+    edges:
+    - o-sh
+  - text: Edge servers fetch it once more and serve everyone nearby.
+    edges:
+    - sh-edge
+  - text: Each player downloads segments, measures its throughput and switches quality to avoid buffering.
+    edges:
+    - edge-pl
+- id: play
+  name: Press play at the toss
+  steps:
+  - text: The player calls the playback API.
+    edges:
+    - pl-api
+  - text: The API checks the subscription from cache and returns a signed playlist URL.
+    edges:
+    - api-ent
+    - pl-api
+  - text: The CDN edge returns the playlist and first segments from cache.
+    edges:
+    - edge-pl
+  - text: The player starts at a low quality for a fast start, then climbs.
+    nodes:
+    - player
+- id: panic
+  name: A traffic spike
+  steps:
+  - text: A wicket falls and millions open the app within a minute.
+    edges:
+    - pl-api
+    - edge-pl
+  - text: Servers were already scaled up before the match from forecasts, because new ones take too long to start.
+    nodes:
+    - api
+  - text: If load keeps climbing, panic mode turns off recommendations and personalisation.
+    edges:
+    - pl-extras
+  - text: 'The video keeps playing: it comes from CDN caches, not from the services.'
+    edges:
+    - sh-edge
+    - edge-pl
+requirements:
+  features:
+  - Watch live on phones, TVs and browsers
+  - Quality adjusts to each viewer's connection
+  - Subscription checked before playing
+  - Live score, commentary languages and ads
+  - Pause, rewind and rejoin live
+  qualities:
+  - Starts within a couple of seconds
+  - Seconds behind the TV broadcast, not minutes
+  - Survives tens of millions joining in minutes
+  - When something fails, the video keeps playing
+numbers:
+  assumption: 'Our assumption: 25 million people watching at once, at 400 kbps each on average.'
+  rows:
+  - what: Bandwidth
+    size: about 10 Tbps
+    how: 25 million × 400 kbps.
+  - what: Segment requests
+    size: about 6 million a second
+    how: 25 million viewers ÷ one 4-second segment each.
+  - what: Joining
+    size: over a million a minute
+    how: Everyone arrives at the toss or after a wicket, faster than new servers start.
+decisions:
+- title: HTTP segments
+  text: HLS and DASH put viewers seconds behind live, but segments cache on CDNs and scale to tens of millions.
+    Real-time protocols don't scale that cheaply.
+- title: Scale before the match
+  text: Traffic rises faster than new servers can start, so capacity is added from forecasts and tested with load
+    and failure drills.
+- title: Drop the extras
+  text: Viewers forgive a missing recommendation row, not a frozen match.
+breaks:
+- what: A push notification.
+  fix: It sends tens of millions to the app in seconds. Send in waves and pre-warm what they hit.
+- what: One CDN runs out of capacity.
+  fix: Use several CDNs, steer by live performance, and lower the default quality.
+- what: The subscription database.
+  fix: Cache entitlements for the whole match and let people who were already watching keep watching.
+companies:
+- name: Hotstar (now JioHotstar)
+  text: Set a record of 25.3 million concurrent viewers on 10 July 2019, India vs New Zealand. At that scale it
+    reported over a million requests a second and over 10 Tbps. It pre-warmed servers instead of relying on autoscaling,
+    ran load and chaos drills before big games, and had a panic mode that switched off personalisation.
+  links:
+  - title: Hotstar sets new global record for live viewership
+    publisher: AWS for Media & Entertainment
+    year: '2019'
+    url: https://aws.amazon.com/blogs/media/in-the-news-hotstar-sets-new-global-record-for-live-viewership/
+    verified: true
+  - title: Report on Hotstar's AWS re:Invent talk (CMY302)
+    publisher: DevelopersIO (Classmethod)
+    year: '2019'
+    url: https://dev.classmethod.jp/articles/reinvent-2019-cmy302/
+    verified: true
+- name: Netflix
+  text: Its Open Connect programme places Netflix cache appliances inside internet providers' networks, so video
+    travels a short way to viewers.
+  links:
+  - title: Netflix Open Connect
+    publisher: Netflix
+    year: '2026'
+    url: https://openconnect.netflix.com/en/
+    verified: true
+others:
+- title: Design a video platform like YouTube
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/youtube

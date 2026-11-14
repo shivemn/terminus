@@ -1,0 +1,357 @@
+id: upi-payments
+title: Design UPI payments
+like:
+- PhonePe
+- Google Pay
+- Paytm
+- BHIM
+level: core
+summary: 'The app creates a payment with an idempotency key, so a retry can never charge twice. A state machine
+  sends it through a partner bank to NPCI''s UPI switch, which asks the payer''s bank to debit and the payee''s
+  bank to credit. Every change is appended to a ledger, and events leave through an outbox in the same transaction.
+  The hard part is the payment whose bank never answers: it stays ''unknown'' until a status check or the settlement
+  file decides.'
+stops:
+- api-styles
+- database-internals
+- reliability-patterns
+- messaging
+- distributed-systems
+- systems-security
+diagram:
+  width: 1240
+  height: 600
+  nodes:
+  - id: app
+    name: Payment app
+    sub: Scan, enter PIN
+    kind: edge
+    icon: phone
+    x: 110
+    y: 300
+    w: 170
+  - id: api
+    name: Payments API
+    sub: Idempotency keys
+    kind: service
+    icon: card
+    x: 350
+    y: 300
+    stop: api-styles
+  - id: risk
+    name: Risk engine
+    sub: Limits, fraud
+    kind: service
+    icon: shield
+    x: 350
+    y: 500
+    stop: systems-security
+  - id: sm
+    name: Payment state machine
+    sub: Created → pending → done
+    kind: service
+    icon: sync
+    x: 600
+    y: 300
+    w: 200
+    stop: distributed-systems
+  - id: db
+    name: Payments DB, ledger
+    sub: Append-only
+    kind: store
+    icon: database
+    x: 600
+    y: 500
+    stop: database-internals
+  - id: outbox
+    name: Outbox and queue
+    sub: Events after commit
+    kind: store
+    icon: queue
+    x: 850
+    y: 500
+    stop: messaging
+  - id: recon
+    name: Reconciliation
+    sub: Settlement files
+    kind: service
+    icon: clock
+    x: 600
+    y: 110
+    stop: reliability-patterns
+  - id: psp
+    name: Partner bank
+    sub: PSP bank
+    kind: external
+    icon: bank
+    x: 850
+    y: 300
+  - id: npci
+    name: NPCI UPI switch
+    sub: Routes between banks
+    kind: external
+    icon: arrows
+    x: 1080
+    y: 300
+  - id: payer
+    name: Payer's bank
+    sub: Checks PIN, debits
+    kind: external
+    icon: bank
+    x: 1080
+    y: 110
+  - id: payee
+    name: Payee's bank
+    sub: Credits the shop
+    kind: external
+    icon: bank
+    x: 1080
+    y: 500
+  edges:
+  - id: a-api
+    pts:
+    - - 195.0
+      - 300
+    - - 260.0
+      - 300
+    label:
+      text: pay
+      x: 228
+      y: 282
+      anchor: middle
+    two: true
+  - id: api-risk
+    pts:
+    - - 350
+      - 333.0
+    - - 350
+      - 467.0
+    label:
+      text: limits, fraud
+      x: 366
+      y: 404
+      anchor: start
+  - id: api-sm
+    pts:
+    - - 440.0
+      - 300
+    - - 500.0
+      - 300
+  - id: sm-db
+    pts:
+    - - 600
+      - 333.0
+    - - 600
+      - 467.0
+    label:
+      text: state + ledger, one transaction
+      x: 616
+      y: 404
+      anchor: start
+  - id: db-out
+    pts:
+    - - 690.0
+      - 500
+    - - 760.0
+      - 500
+    label:
+      text: outbox row
+      x: 725
+      y: 482
+      anchor: middle
+  - id: sm-psp
+    pts:
+    - - 700.0
+      - 300
+    - - 760.0
+      - 300
+    two: true
+  - id: psp-npci
+    pts:
+    - - 940.0
+      - 300
+    - - 990.0
+      - 300
+    two: true
+  - id: npci-payer
+    pts:
+    - - 1080
+      - 267.0
+    - - 1080
+      - 143.0
+    label:
+      text: debit
+      x: 1096
+      y: 209
+      anchor: start
+    two: true
+  - id: npci-payee
+    pts:
+    - - 1080
+      - 333.0
+    - - 1080
+      - 467.0
+    label:
+      text: credit
+      x: 1096
+      y: 404
+      anchor: start
+    two: true
+  - id: psp-recon
+    pts:
+    - - 850
+      - 267.0
+    - - 850
+      - 110
+    - - 690.0
+      - 110
+    label:
+      text: settlement file
+      x: 770
+      y: 92
+      anchor: middle
+  - id: recon-sm
+    pts:
+    - - 600
+      - 143.0
+    - - 600
+      - 267.0
+    label:
+      text: settle unknowns
+      x: 616
+      y: 209
+      anchor: start
+flows:
+- id: pay
+  name: Pay a shop by QR
+  steps:
+  - text: The app scans the QR, shows the shop's name, and sends the payment with a new idempotency key.
+    edges:
+    - a-api
+  - text: The API inserts the payment as CREATED. Repeating the same key returns this row instead of making another.
+    edges:
+    - api-sm
+    - sm-db
+  - text: The risk engine checks limits and fraud signals.
+    edges:
+    - api-risk
+  - text: The person enters their UPI PIN in the bank's secure component. It is encrypted for the bank; the app's
+      servers never see it.
+    nodes:
+    - app
+  - text: The state machine marks it PENDING and sends it through the partner bank to the UPI switch.
+    edges:
+    - sm-psp
+    - psp-npci
+  - text: The payer's bank checks the PIN and debits the account; the payee's bank credits the shop.
+    edges:
+    - npci-payer
+    - npci-payee
+  - text: SUCCESS comes back. Ledger entries and an outbox event are written in one transaction.
+    edges:
+    - psp-npci
+    - sm-psp
+    - sm-db
+    - db-out
+  - text: The app shows the tick, and notifications go out from the outbox.
+    edges:
+    - a-api
+- id: timeout
+  name: The bank doesn't answer
+  steps:
+  - text: The state machine times out and marks the payment UNKNOWN. The app says it's being checked.
+    edges:
+    - sm-psp
+    - sm-db
+  - text: It never resends the debit. It asks for the status of the original transaction, backing off between tries.
+    edges:
+    - sm-psp
+    - psp-npci
+  - text: The switch eventually reports success or failure.
+    edges:
+    - psp-npci
+  - text: If it's still unknown, the day's settlement file decides, and failed debits are reversed to the payer.
+    edges:
+    - psp-recon
+    - recon-sm
+requirements:
+  features:
+  - Pay a UPI ID, phone number or QR
+  - Request money and approve requests
+  - History and status of pending payments
+  - Refunds and reversals
+  - A notification for every debit and credit
+  qualities:
+  - Never debit twice, however often anything retries
+  - Every payment ends in a known state
+  - Append-only audit trail
+  - Done within a few seconds
+  - The PIN never touches the app's servers
+numbers:
+  assumption: 'Our assumption: our app handles about a tenth of all UPI payments.'
+  rows:
+  - what: Our payments
+    size: about 1,000 a second
+    how: A tenth of UPI's average, below. Peaks on salary days and festivals are several times higher.
+  - what: Ledger storage
+    size: about 30 TB a year
+    how: 2.5 billion payments a month × about 1 KB of ledger entries and status changes.
+  realScale:
+  - name: UPI
+    text: 'carried 25,466.70 million transactions in October 2026, worth ₹31.5 lakh crore, across 758 banks: about
+      9,500 a second on average.'
+    source:
+      title: UPI product statistics
+      publisher: National Payments Corporation of India
+      year: '2026'
+      url: https://www.npci.org.in/product/upi/product-statistics
+      verified: true
+decisions:
+- title: A relational ledger
+  text: 'Correct money beats raw scale: a strongly consistent database, sharded by payer.'
+- title: An 'unknown' state
+  text: After a timeout, retrying risks a double debit and assuming failure risks lost money. Ask for the status
+    instead.
+- title: Transactional outbox
+  text: Writing the event in the same transaction means a crash never loses a notification or sends one for a rolled-back
+    payment.
+- title: Idempotency keys
+  text: The client picks a key before the first try, and every retry carries it.
+breaks:
+- what: A partner bank slows down.
+  fix: On festival days, circuit-break and route through another partner bank; show an honest 'pending'.
+- what: A big sale at one merchant.
+  fix: Their account becomes a hot row. Shard by payer and add up merchant credits asynchronously.
+- what: A wave of collect-request scams.
+  fix: Tighten risk rules for requests from new payees and add friction in the app.
+companies:
+- name: NPCI
+  text: 'Runs the UPI switch between banks and publishes monthly volumes: 25,466.70 million transactions in October
+    2026.'
+  links:
+  - title: UPI product statistics
+    publisher: National Payments Corporation of India
+    year: '2026'
+    url: https://www.npci.org.in/product/upi/product-statistics
+    verified: true
+- name: Razorpay
+  text: A payment company explaining the UPI flow between payer and payee banks through NPCI, and the parties involved.
+  links:
+  - title: What is UPI and how it works
+    publisher: Razorpay
+    year: '2026'
+    url: https://razorpay.com/blog/what-is-upi-and-how-it-works/
+    verified: true
+- name: Stripe
+  text: Clients send an idempotency key with each request, so retries after network failures can't create a second
+    charge; the server returns the first result for that key.
+  links:
+  - title: Designing robust and predictable APIs with idempotency
+    publisher: Stripe
+    year: '2017'
+    url: https://stripe.com/blog/idempotency
+    verified: true
+others:
+- title: Design a payment system like Stripe
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/payment-system
