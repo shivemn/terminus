@@ -3743,7 +3743,7 @@
   title: Effective harnesses for long-running agents
   author: Anthropic
   type: site
-  url: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+  url: https://www.anthropic.com/research/effective-harnesses-for-long-running-agents
   free: true
   medium: read
 
@@ -3752,6 +3752,46 @@
   author: OpenTelemetry
   type: site
   url: https://github.com/open-telemetry/semantic-conventions-genai
+  free: true
+  medium: read
+
+- id: paper-lora-fa
+  title: 'LoRA-FA: Efficient and Effective Low Rank Representation Fine-tuning'
+  author: Zhang et al. (arXiv 2308.03303)
+  type: site
+  url: https://arxiv.org/abs/2308.03303
+  free: true
+  medium: read
+
+- id: paper-vera
+  title: 'VeRA: Vector-based Random Matrix Adaptation'
+  author: Kopiczko, Blankevoort and Asano (arXiv 2310.11454)
+  type: site
+  url: https://arxiv.org/abs/2310.11454
+  free: true
+  medium: read
+
+- id: paper-delta-lora
+  title: 'Delta-LoRA: Fine-Tuning High-Rank Parameters with the Delta of Low-Rank Matrices'
+  author: Zi et al. (arXiv 2309.02411)
+  type: site
+  url: https://arxiv.org/abs/2309.02411
+  free: true
+  medium: read
+
+- id: paper-lora-plus
+  title: 'LoRA+: Efficient Low Rank Adaptation of Large Models'
+  author: Hayou, Ghosh and Yu (arXiv 2402.12354)
+  type: site
+  url: https://arxiv.org/abs/2402.12354
+  free: true
+  medium: read
+
+- id: peft-vera
+  title: VeRA in Hugging Face PEFT
+  author: Hugging Face
+  type: site
+  url: https://huggingface.co/docs/peft/package_reference/vera
   free: true
   medium: read
 

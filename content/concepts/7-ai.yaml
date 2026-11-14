@@ -774,6 +774,8 @@
       detail: Training on input-output pairs with TRL's SFTTrainer, and watching the loss.
     - topic: Parameter-efficient methods
       detail: 'LoRA and QLoRA: training small adapter matrices instead of the whole model, on one GPU.'
+    - topic: LoRA variants
+      detail: 'LoRA-FA freezes the down-projection A and trains only B. VeRA shares one frozen random pair of matrices across all layers and learns small scaling vectors per layer (in Hugging Face PEFT, d starts at 0.1). Delta-LoRA also updates the full weights using the change in A×B. LoRA+ gives B a higher learning rate than A.'
     - topic: Preference tuning
       detail: 'RLHF and DPO: teaching a model which of two answers people prefer.'
     - topic: Synthetic data
@@ -794,6 +796,26 @@
     - resource: smol-course
       locator: 'Units 1 to 3: instruction tuning, evaluation and preference alignment'
       role: primary
+      verified: true
+    - resource: paper-lora-fa
+      locator: The abstract and method section
+      role: deep-dive
+      verified: true
+    - resource: paper-vera
+      locator: The abstract and method section
+      role: deep-dive
+      verified: true
+    - resource: paper-delta-lora
+      locator: The abstract and method section
+      role: deep-dive
+      verified: true
+    - resource: paper-lora-plus
+      locator: The abstract and method section
+      role: deep-dive
+      verified: true
+    - resource: peft-vera
+      locator: The overview and VeraConfig, including d_initial
+      role: deep-dive
       verified: true
 
 - id: inference-serving
