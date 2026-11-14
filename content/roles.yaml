@@ -49,7 +49,7 @@
   tiers:
     hire: [java, oop-design, git, sql, rest-apis, backend-framework, hash-tables, trees-heaps, algorithm-practice, testing-debugging, project-portfolio-api]
     firstYear: [mongodb, cloud-basics, database-internals, concurrency, docker, shell-tools, build-tools]
-    extra: [system-design, ci-cd, web-security, messaging, distributed-systems, kubernetes, observability, redis, caching, partitioning-replication, api-styles, microservices, reliability-patterns]
+    extra: [system-design, ci-cd, web-security, authentication, messaging, distributed-systems, kubernetes, observability, redis, caching, partitioning-replication, api-styles, microservices, reliability-patterns]
   evidence:
     postings: 30
     region: India, entry level
@@ -105,7 +105,7 @@
   tiers:
     hire: [html-css, javascript, react, nodejs, rest-apis, backend-framework, sql, git, linear-structures, hash-tables, project-web-app]
     firstYear: [mongodb, typescript, testing-debugging, docker, ci-cd, web-security]
-    extra: [system-design, web-performance, api-styles, caching]
+    extra: [authentication, system-design, web-performance, api-styles, caching]
   evidence:
     postings: 30
     region: India, entry level

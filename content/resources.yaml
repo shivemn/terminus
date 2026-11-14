@@ -1124,6 +1124,32 @@
   free: true
   medium: practice
 
+- id: owasp-cheat-sheets
+  title: OWASP Cheat Sheet Series
+  author: OWASP Foundation
+  type: site
+  url: https://cheatsheetseries.owasp.org/
+  free: true
+  medium: read
+  short: "OWASP cheat sheets"
+
+- id: oauth-simplified
+  title: OAuth 2.0 Simplified
+  author: Aaron Parecki
+  type: book
+  url: https://www.oauth.com/
+  free: true
+  medium: read
+  note: The whole book is free to read online.
+
+- id: okta-oauth-oidc
+  title: OAuth 2.0 and OpenID Connect (in plain English)
+  author: OktaDev
+  type: video
+  url: https://www.youtube.com/watch?v=996OiexHze0
+  free: true
+  medium: watch
+
 - id: portswigger-academy
   title: Web Security Academy
   author: PortSwigger

@@ -304,6 +304,50 @@
       locator: "The apprentice-level labs for each topic"
       verified: true
 
+- id: authentication
+  title: Authentication and authorisation
+  area: web
+  summary: 'Knowing who a user is and what they may do: storing passwords, sessions and tokens, JWTs, OAuth 2.0 and OpenID Connect, and role-based access.'
+  hours: 12
+  requires: [web-http]
+  recommends: [web-security, rest-apis]
+  covers:
+    - topic: Authentication versus authorisation
+      detail: Proving who someone is, then deciding what they're allowed to do, and why they're separate checks.
+    - topic: Password storage
+      detail: Hashing with a slow, salted algorithm such as Argon2id or bcrypt, never encryption, and comparing hashes safely.
+    - topic: Sessions and cookies
+      detail: Random session IDs in secure, HttpOnly, SameSite cookies, expiry, and issuing a new ID after log-in.
+    - topic: JSON Web Tokens
+      detail: What a signed token holds, checking its signature, issuer, audience and expiry, and why a JWT can't easily be revoked.
+    - topic: OAuth 2.0
+      detail: Letting an app act on a user's behalf; the authorization code flow with PKCE, scopes, and access and refresh tokens.
+    - topic: OpenID Connect
+      detail: Signing in with Google or another provider, and the ID token that says who the user is.
+    - topic: Role-based access control
+      detail: Roles and permissions, checking access on every request on the server, and denying by default.
+    - topic: Multi-factor and account recovery
+      detail: Second factors, passkeys, and password resets that can't be abused.
+  resources:
+    - resource: owasp-cheat-sheets
+      locator: 'The Authentication, Password Storage, Session Management, JSON Web Token, OAuth 2.0 and Authorization cheat sheets'
+      role: primary
+      verified: true
+      why: Short, current and written by the people who track how log-ins get broken.
+    - resource: oauth-simplified
+      locator: 'Background, then Server-Side Apps, Access Tokens, Protecting Apps with PKCE and OpenID Connect'
+      role: alternative
+      verified: true
+    - resource: okta-oauth-oidc
+      locator: The whole talk
+      role: primary
+      verified: true
+      why: An hour that makes OAuth and OpenID Connect make sense.
+    - resource: portswigger-academy
+      locator: 'The Authentication, OAuth authentication and JWT attacks topics'
+      role: primary
+      verified: true
+
 - id: project-web-app
   title: "Project: build and ship a web app"
   area: web
@@ -311,7 +355,7 @@
   hours: 40
   kind: project
   requires: [react]
-  recommends: [rest-apis, git]
+  recommends: [rest-apis, git, authentication]
   brief:
     build: Build a small app people could use, such as an expense splitter, a club's event sign-up or a tiffin order board, in React with a backend or a hosted database, and deploy it.
     shows:
