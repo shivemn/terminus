@@ -1,0 +1,292 @@
+id: flash-sale
+title: Design a flash sale
+like:
+- Amazon Prime Day
+- Shopify drops
+- Flipkart Big Billion Days
+level: core
+summary: Product pages come from a CDN, so browsing costs almost nothing. Checkouts pass through a throttle at the
+  edge that lets people in at the rate the system can take and shows everyone else a waiting page. Stock is reserved
+  with one atomic decrement, and payment happens after. The hard parts are a huge spike in seconds, never selling
+  more than you have, and protecting other shops on shared systems.
+stops:
+- scaling-load-balancing
+- redis
+- concurrency
+- caching
+- messaging
+- reliability-patterns
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: buyers
+    name: Shoppers
+    sub: All at once
+    kind: edge
+    icon: users
+    x: 110
+    y: 320
+    w: 170
+  - id: cdn
+    name: CDN
+    sub: Product pages
+    kind: external
+    icon: globe
+    x: 380
+    y: 120
+    stop: caching
+  - id: edge
+    name: Edge throttle
+    sub: Waiting room
+    kind: service
+    icon: hourglass
+    x: 380
+    y: 320
+    stop: scaling-load-balancing
+  - id: checkout
+    name: Checkout
+    sub: Order flow
+    kind: service
+    icon: cart
+    x: 650
+    y: 320
+    stop: microservices
+  - id: stock
+    name: Stock counter
+    sub: Atomic decrement
+    kind: store
+    icon: counter
+    x: 920
+    y: 120
+    stop: redis
+  - id: orders
+    name: Orders DB
+    sub: Pending, then paid
+    kind: store
+    icon: database
+    x: 920
+    y: 320
+    stop: sql
+  - id: queue
+    name: Payment jobs
+    sub: Steady pace
+    kind: store
+    icon: queue
+    x: 920
+    y: 520
+    stop: messaging
+  - id: pay
+    name: Payments
+    sub: Card, UPI
+    kind: external
+    icon: card
+    x: 1180
+    y: 520
+    w: 170
+  edges:
+  - id: b-cdn
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 120
+    - - 290.0
+      - 120
+    label:
+      text: browse
+      x: 200
+      y: 102
+      anchor: middle
+  - id: b-edge
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: checkout
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: edge-co
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: let in
+      x: 515
+      y: 302
+      anchor: middle
+  - id: co-stock
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 120
+    - - 830.0
+      - 120
+    label:
+      text: take one
+      x: 740
+      y: 102
+      anchor: middle
+  - id: co-orders
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: order
+      x: 785
+      y: 302
+      anchor: middle
+  - id: co-queue
+    pts:
+    - - 650
+      - 353.0
+    - - 650
+      - 520
+    - - 830.0
+      - 520
+    label:
+      text: charge job
+      x: 740
+      y: 502
+      anchor: middle
+  - id: q-pay
+    pts:
+    - - 1010.0
+      - 520
+    - - 1095.0
+      - 520
+  - id: pay-orders
+    pts:
+    - - 1180
+      - 487.0
+    - - 1180
+      - 320
+    - - 1010.0
+      - 320
+    label:
+      text: paid or failed
+      x: 1095
+      y: 302
+      anchor: middle
+flows:
+- id: browse
+  name: Browse
+  steps:
+  - text: Product pages are static and cached, so the CDN serves almost all of them.
+    edges:
+    - b-cdn
+  - text: Each page is cached for a short time, so the shop's own servers build it only a few times a minute.
+    nodes:
+    - cdn
+- id: rush
+  name: The sale opens
+  steps:
+  - text: Everyone presses buy within seconds.
+    edges:
+    - b-edge
+  - text: The edge throttle lets checkouts through only as fast as the system can take them.
+    edges:
+    - edge-co
+  - text: Everyone else sees a waiting page and is let in, in turn, instead of getting an error.
+    edges:
+    - b-edge
+- id: buy
+  name: Buy one
+  steps:
+  - text: Checkout takes one unit with a single atomic decrement. If the count is already zero, it is sold out.
+    edges:
+    - co-stock
+  - text: It writes a pending order.
+    edges:
+    - co-orders
+  - text: Payment is queued and charged at a pace the payment provider can take.
+    edges:
+    - co-queue
+    - q-pay
+  - text: The order is marked paid. If payment fails, the unit goes back into stock.
+    edges:
+    - pay-orders
+    nodes:
+    - stock
+requirements:
+  features:
+  - Sell limited stock at a set time
+  - A fair waiting line
+  - Hold an item while paying
+  - Release it if payment fails
+  qualities:
+  - Never sell more than exists
+  - Stay up through a 100x spike
+  - Other shops unaffected
+  - Feels fair
+numbers:
+  assumption: 'Our assumption: 1 million shoppers try to buy 10,000 units in the first minute.'
+  rows:
+  - what: Arrivals
+    size: about 17,000 a second
+    how: 1 million ÷ 60, mostly in the first few seconds.
+  - what: Successful orders
+    size: 10,000
+    how: At most one per unit; 99% of shoppers are turned away.
+  - what: Throttle rate
+    size: what checkout can take
+    how: Set from load tests, for example 2,000 checkouts a second.
+  realScale:
+  - name: Amazon
+    text: ran more than 59 trillion DynamoDB requests over the four days of Prime Day 2026, peaking at 192 million
+      a second; SQS peaked at 213 million messages a second.
+    source:
+      title: 'All the numbers: Amazon Prime Day 2026 powered by AWS'
+      publisher: AWS News Blog
+      year: '2026'
+      url: https://aws.amazon.com/blogs/aws/all-the-numbers-amazon-prime-day-2026-powered-by-aws/
+      verified: true
+  - name: Shopify
+    text: served 80,000 requests a second at peak, for 600,000 merchants, in 2018.
+    source:
+      title: 'E-commerce at scale: inside Shopify''s tech stack'
+      publisher: Shopify Engineering
+      year: '2018'
+      url: https://shopify.engineering/e-commerce-at-scale-inside-shopifys-tech-stack
+      verified: true
+decisions:
+- title: Turn people away early
+  text: Waiting at the edge is cheap; letting everyone hit the database is not.
+- title: One atomic counter
+  text: A single decrement that fails at zero makes overselling impossible, without locks.
+- title: Pay after reserving
+  text: Payment is slow and can fail, so it runs after the unit is held, with a time limit.
+breaks:
+- what: The stock counter is one hot key.
+  fix: Split stock across several counters and take from any that has some.
+- what: Bots.
+  fix: They arrive first. Add checks at the edge and limits per account.
+- what: Abandoned checkouts.
+  fix: Holds expire after a few minutes and return to stock.
+companies:
+- name: Shopify
+  text: 'In February 2016 Kylie Jenner''s sale took down her store and every other store on the same database shard.
+    Shopify answered with a checkout throttle in its Nginx and Lua edge tier, a leaky bucket that shows waiting
+    customers a queue page instead of an error. It later moved to pods: fully isolated copies of Shopify, each with
+    its own MySQL, Redis and memcached, more than a hundred of them by 2018.'
+  links:
+  - title: Surviving flashes of high-write traffic using scriptable load balancers (part I)
+    publisher: Shopify Engineering
+    year: '2017'
+    url: https://shopify.engineering/surviving-flashes-of-high-write-traffic-using-scriptable-load-balancers-part-i
+    verified: true
+  - title: 'E-commerce at scale: inside Shopify''s tech stack'
+    publisher: Shopify Engineering
+    year: '2018'
+    url: https://shopify.engineering/e-commerce-at-scale-inside-shopifys-tech-stack
+    verified: true
+others: []

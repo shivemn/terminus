@@ -1,0 +1,260 @@
+id: collab-editing
+title: Design collaborative editing
+like:
+- Google Docs
+- Figma
+- Notion
+level: advanced
+summary: Everyone editing a document keeps an open connection to the one server process that owns it. Each change
+  is sent with the version it was made on; the server puts changes in a single order, adjusts any made on an older
+  version so they still apply correctly, saves them to a log and sends them to everyone else. The hard parts are
+  edits that cross in flight, cursors and presence, and opening long documents fast.
+stops:
+- distributed-systems
+- concurrency
+- networking
+- database-internals
+- redis
+- web-http
+diagram:
+  width: 1040
+  height: 600
+  nodes:
+  - id: you
+    name: You
+    sub: Typing
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 150
+    w: 170
+  - id: mate
+    name: A teammate
+    sub: Typing too
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 490
+    w: 170
+  - id: router
+    name: Doc router
+    sub: Finds the doc's server
+    kind: service
+    icon: gateway
+    x: 380
+    y: 320
+    stop: networking
+  - id: doc
+    name: Document process
+    sub: One per open doc
+    kind: service
+    icon: edit
+    x: 650
+    y: 320
+    stop: concurrency
+  - id: log
+    name: Change log
+    sub: Every change, in order
+    kind: store
+    icon: database
+    x: 920
+    y: 320
+    stop: database-internals
+  - id: snap
+    name: Snapshots
+    sub: For fast opening
+    kind: store
+    icon: box
+    x: 920
+    y: 120
+    stop: cloud-basics
+  - id: pres
+    name: Presence
+    sub: Cursors, who's here
+    kind: store
+    icon: users
+    x: 650
+    y: 520
+    stop: redis
+  edges:
+  - id: you-r
+    pts:
+    - - 110
+      - 183.0
+    - - 110
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: changes (WebSocket)
+      x: 200
+      y: 302
+      anchor: middle
+    two: true
+  - id: mate-r
+    pts:
+    - - 195.0
+      - 490
+    - - 380
+      - 490
+    - - 380
+      - 353.0
+    label:
+      text: changes
+      x: 288
+      y: 472
+      anchor: middle
+    two: true
+  - id: r-doc
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    two: true
+  - id: doc-log
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: append
+      x: 785
+      y: 302
+      anchor: middle
+  - id: log-snap
+    pts:
+    - - 920
+      - 287.0
+    - - 920
+      - 153.0
+    label:
+      text: every few hundred changes
+      x: 936
+      y: 224
+      anchor: start
+  - id: doc-pres
+    pts:
+    - - 650
+      - 353.0
+    - - 650
+      - 487.0
+    label:
+      text: cursors
+      x: 666
+      y: 424
+      anchor: start
+flows:
+- id: type
+  name: Type a word
+  steps:
+  - text: Your editor applies the change at once, then sends it with the version it was made on.
+    edges:
+    - you-r
+  - text: The router sends it to the one process that owns this document.
+    edges:
+    - r-doc
+  - text: If other changes arrived first, the process adjusts yours so it still lands in the right place.
+    nodes:
+    - doc
+  - text: It appends the change to the log, giving it the next version number.
+    edges:
+    - doc-log
+  - text: It sends the change to everyone else, who apply it the same way.
+    edges:
+    - r-doc
+    - mate-r
+- id: clash
+  name: Two edits at once
+  steps:
+  - text: You and a teammate change the same thing at the same moment.
+    edges:
+    - you-r
+    - mate-r
+  - text: Both changes reach the document process; it alone decides their order.
+    edges:
+    - r-doc
+  - text: For text, the second change is shifted past the first so both survive. For a single setting, such as a
+      colour, the last one to arrive wins.
+    nodes:
+    - doc
+  - text: Everyone receives the changes in that one order, so every copy ends up the same.
+    edges:
+    - mate-r
+    - you-r
+- id: open
+  name: Open a document
+  steps:
+  - text: The router starts a process for the document if none is running.
+    edges:
+    - you-r
+    - r-doc
+  - text: The process loads the latest snapshot, then the few changes made after it.
+    edges:
+    - log-snap
+    - doc-log
+  - text: It sends the document and who else is here.
+    edges:
+    - doc-pres
+    - r-doc
+requirements:
+  features:
+  - Many people edit one document at once
+  - See others' cursors and selections
+  - Full version history
+  - Keep working offline and catch up
+  qualities:
+  - Your own typing never waits on the network
+  - Everyone ends up with the same document
+  - No edit is lost
+  - Long documents open quickly
+numbers:
+  assumption: 'Our assumption: 10 million documents open at once, with 1 million people typing at any moment.'
+  rows:
+  - what: Changes in
+    size: about 2 million a second
+    how: 1 million typists × 2 changes a second, after batching keystrokes.
+  - what: Changes out
+    size: several million a second
+    how: Each change goes to everyone else in the document, usually a handful of people.
+  - what: Log growth
+    size: tens of GB an hour
+    how: Each change is small, about 100 bytes, but there are billions an hour. Snapshots keep opening fast.
+decisions:
+- title: One owner per document
+  text: A single process orders every change, which makes conflicts far simpler than letting servers agree among
+    themselves.
+- title: Apply locally first
+  text: Typing shows instantly; the server confirms or adjusts later.
+- title: Store changes, not files
+  text: A log of small changes gives version history for free and makes syncing cheap.
+breaks:
+- what: A document with hundreds of editors.
+  fix: One process becomes the bottleneck. Batch changes and send cursors less often.
+- what: The process crashes.
+  fix: Start a new one from the snapshot and log; clients resend changes not yet confirmed.
+- what: Someone edits offline for days.
+  fix: Their changes are far behind. Adjust them in one batch, or fall back to saving a copy.
+companies:
+- name: Google Docs
+  text: 'Saves each document as a revision log of three kinds of change: inserting text, deleting text and applying
+    styles. When edits cross, operational transformation (OT) adjusts them so that once everyone has every change,
+    all copies match.'
+  links:
+  - title: 'What''s different about the new Google Docs: conflict resolution'
+    publisher: Google Drive Blog
+    year: '2010'
+    url: https://drive.googleblog.com/2010/09/whats-different-about-new-google-docs_22.html
+    verified: true
+- name: Figma
+  text: Chose not to use OT. Clients talk to servers over WebSockets, and the servers run a separate process for
+    each document. Because the server is the central authority, two changes to the same property simply end with
+    the last value the server received.
+  links:
+  - title: How Figma's multiplayer technology works
+    publisher: Figma
+    year: '2019'
+    url: https://www.figma.com/blog/how-figmas-multiplayer-technology-works/
+    verified: true
+others: []

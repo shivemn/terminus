@@ -1,0 +1,289 @@
+id: hotel-booking
+title: Design hotel booking
+like:
+- Airbnb
+- Booking.com
+- MakeMyTrip
+level: core
+summary: 'Search reads a copy of availability built for speed. Booking goes to the real thing: a database row per
+  room per night, held with a write that only succeeds if the night is still free. Payment carries an idempotency
+  key, so a retry after a timeout can never charge twice. The hard parts are two people wanting the last room, payments
+  that half-fail, and rooms also sold on other sites.'
+stops:
+- sql
+- concurrency
+- reliability-patterns
+- elasticsearch
+- caching
+- api-styles
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: guest
+    name: Guest
+    sub: Searches, books
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: search
+    name: Search
+    sub: Place, dates, guests
+    kind: service
+    icon: search
+    x: 380
+    y: 120
+    stop: elasticsearch
+  - id: avail
+    name: Availability copy
+    sub: Fast to search
+    kind: store
+    icon: calendar
+    x: 650
+    y: 120
+    stop: caching
+  - id: book
+    name: Booking service
+    sub: Hold, pay, confirm
+    kind: service
+    icon: key
+    x: 380
+    y: 320
+    stop: concurrency
+  - id: db
+    name: Bookings DB
+    sub: A row per room-night
+    kind: store
+    icon: database
+    x: 650
+    y: 320
+    stop: sql
+  - id: channel
+    name: Channel sync
+    sub: Hotel and other sites
+    kind: service
+    icon: sync
+    x: 920
+    y: 320
+    stop: api-styles
+  - id: others
+    name: Other booking sites
+    sub: The hotel's own system
+    kind: external
+    icon: globe
+    x: 1180
+    y: 320
+    w: 170
+  - id: pay
+    name: Payments
+    sub: Idempotency key
+    kind: service
+    icon: card
+    x: 380
+    y: 520
+    stop: reliability-patterns
+  - id: bank
+    name: Card network
+    sub: Charges the card
+    kind: external
+    icon: bank
+    x: 650
+    y: 520
+  edges:
+  - id: g-search
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 120
+    - - 290.0
+      - 120
+    label:
+      text: search
+      x: 200
+      y: 102
+      anchor: middle
+  - id: s-avail
+    pts:
+    - - 470.0
+      - 120
+    - - 560.0
+      - 120
+    label:
+      text: nights free?
+      x: 515
+      y: 102
+      anchor: middle
+  - id: g-book
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: book
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: book-db
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: hold
+      x: 515
+      y: 302
+      anchor: middle
+  - id: db-avail
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 153.0
+    label:
+      text: nights taken
+      x: 666
+      y: 224
+      anchor: start
+  - id: book-pay
+    pts:
+    - - 380
+      - 353.0
+    - - 380
+      - 487.0
+    label:
+      text: charge, with key
+      x: 396
+      y: 424
+      anchor: start
+    two: true
+  - id: pay-bank
+    pts:
+    - - 470.0
+      - 520
+    - - 560.0
+      - 520
+    two: true
+  - id: db-ch
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: booked
+      x: 785
+      y: 302
+      anchor: middle
+  - id: ch-others
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+    label:
+      text: sync
+      x: 1052
+      y: 302
+      anchor: middle
+    two: true
+flows:
+- id: search
+  name: Search
+  steps:
+  - text: The guest searches a place and dates.
+    edges:
+    - g-search
+  - text: Search checks a copy of availability built for speed. It can be seconds out of date.
+    edges:
+    - s-avail
+- id: book
+  name: Book the last room
+  steps:
+  - text: The guest presses book.
+    edges:
+    - g-book
+  - text: The booking service holds the nights with a write that only succeeds if they are still free. Of two guests,
+      one wins.
+    edges:
+    - book-db
+  - text: It charges the card, sending an idempotency key made for this booking.
+    edges:
+    - book-pay
+    - pay-bank
+  - text: The booking is confirmed; if payment fails, the hold is released.
+    edges:
+    - g-book
+    nodes:
+    - db
+  - text: Availability and other sites are updated.
+    edges:
+    - db-avail
+    - db-ch
+    - ch-others
+- id: retry
+  name: A payment times out
+  steps:
+  - text: The call to payments times out, and nobody knows whether the card was charged.
+    edges:
+    - book-pay
+  - text: The booking service retries with the same key.
+    edges:
+    - book-pay
+  - text: Payments sees the key, finds the earlier result, and returns it instead of charging again.
+    nodes:
+    - pay
+requirements:
+  features:
+  - Search by place, dates and guests
+  - Book and pay
+  - Cancel and refund
+  - Stay in step with other sites selling the same rooms
+  qualities:
+  - Never double-book a room
+  - Never charge twice
+  - Search is fast
+  - Confirmed bookings are never lost
+numbers:
+  assumption: 'Our assumption: 1 million bookings a day, a hundred searches for each, and 1 million properties.'
+  rows:
+  - what: Searches
+    size: about 1,200 a second
+    how: 100 million ÷ 86,400, several times higher in the evening.
+  - what: Bookings
+    size: about 12 a second
+    how: 1 million ÷ 86,400. Few writes, but each must be exactly right.
+  - what: Room-nights
+    size: about 1 billion rows
+    how: 1 million properties × about 3 rooms × 365 nights ahead.
+decisions:
+- title: Search a copy, book the original
+  text: Searching may be slightly stale; booking checks the real rows.
+- title: A conditional write
+  text: '''Mark booked only if free'' is one atomic step, so two guests can''t both get the room.'
+- title: Idempotency keys
+  text: Retrying a payment with the same key returns the first result instead of charging again.
+breaks:
+- what: A room sold elsewhere.
+  fix: The hotel sold it on another site a moment earlier. Sync quickly, and re-check before confirming.
+- what: Payment succeeds, then the service crashes.
+  fix: On restart, the key shows the charge happened; confirm the booking rather than charging again.
+- what: Popular dates.
+  fix: Many guests race for few rooms. Short holds and quick release keep rooms moving.
+companies:
+- name: Airbnb
+  text: Built Orpheus, a general-purpose idempotency library used across its payment services. Each request carries
+    an idempotency key; work is split into Pre-RPC, RPC and Post-RPC phases with database commits around the call
+    to another service; and errors are classed as retryable or non-retryable, so retries can't cause double payments.
+  links:
+  - title: Avoiding double payments in a distributed payments system
+    publisher: The Airbnb Tech Blog
+    year: '2019'
+    url: https://medium.com/airbnb-engineering/avoiding-double-payments-in-a-distributed-payments-system-2981f6b070bb
+    verified: true
+others: []

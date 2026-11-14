@@ -1,0 +1,279 @@
+id: notifications
+title: Design a notification system
+like:
+- Uber
+- Swiggy
+- WhatsApp
+level: core
+summary: Services hand a message to one notification API. It checks the person's preferences, queues the message
+  by priority and keeps it until delivered. If the app is open it gets the message over a connection it keeps to
+  the delivery service; if not, Apple or Google's push service wakes the phone. The hard parts are millions of open
+  connections, ordering, and never losing or repeating a message.
+stops:
+- messaging
+- networking
+- api-styles
+- redis
+- reliability-patterns
+- sql
+diagram:
+  width: 1250
+  height: 600
+  nodes:
+  - id: svc
+    name: Other services
+    sub: Trips, orders
+    kind: service
+    icon: server
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: Notification API
+    sub: Who, what, priority
+    kind: service
+    icon: send
+    x: 350
+    y: 320
+    stop: api-styles
+  - id: prefs
+    name: Preferences
+    sub: Opt-outs, quiet hours
+    kind: store
+    icon: database
+    x: 350
+    y: 120
+    stop: sql
+  - id: queue
+    name: Queues
+    sub: By priority
+    kind: store
+    icon: queue
+    x: 600
+    y: 320
+    stop: messaging
+  - id: store
+    name: Message store
+    sub: Until delivered
+    kind: store
+    icon: database
+    x: 600
+    y: 520
+    stop: redis
+  - id: deliv
+    name: Delivery service
+    sub: Holds open connections
+    kind: service
+    icon: gateway
+    x: 850
+    y: 320
+    stop: networking
+  - id: os
+    name: APNs / FCM
+    sub: Apple and Google push
+    kind: external
+    icon: bell
+    x: 850
+    y: 120
+  - id: app
+    name: App
+    sub: Phone
+    kind: edge
+    icon: phone
+    x: 1120
+    y: 320
+    w: 170
+  edges:
+  - id: svc-api
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    label:
+      text: send
+      x: 228
+      y: 302
+      anchor: middle
+  - id: api-prefs
+    pts:
+    - - 350
+      - 287.0
+    - - 350
+      - 153.0
+    label:
+      text: allowed?
+      x: 366
+      y: 224
+      anchor: start
+  - id: api-q
+    pts:
+    - - 440.0
+      - 320
+    - - 510.0
+      - 320
+    label:
+      text: enqueue
+      x: 475
+      y: 302
+      anchor: middle
+  - id: q-store
+    pts:
+    - - 600
+      - 353.0
+    - - 600
+      - 487.0
+    label:
+      text: keep
+      x: 616
+      y: 424
+      anchor: start
+  - id: q-deliv
+    pts:
+    - - 690.0
+      - 320
+    - - 760.0
+      - 320
+  - id: deliv-app
+    pts:
+    - - 940.0
+      - 320
+    - - 1035.0
+      - 320
+    label:
+      text: push
+      x: 988
+      y: 302
+      anchor: middle
+    two: true
+  - id: deliv-os
+    pts:
+    - - 850
+      - 287.0
+    - - 850
+      - 153.0
+    label:
+      text: app closed
+      x: 866
+      y: 224
+      anchor: start
+  - id: os-app
+    pts:
+    - - 940.0
+      - 120
+    - - 1120
+      - 120
+    - - 1120
+      - 287.0
+    label:
+      text: wake
+      x: 1030
+      y: 102
+      anchor: middle
+  - id: deliv-store
+    pts:
+    - - 850
+      - 353.0
+    - - 850
+      - 520
+    - - 690.0
+      - 520
+    label:
+      text: 'ack: delete'
+      x: 866
+      y: 440
+      anchor: start
+flows:
+- id: send
+  name: Send a notification
+  steps:
+  - text: A service asks for a message to be sent, with a priority.
+    edges:
+    - svc-api
+  - text: The API checks the person's preferences, such as opt-outs and quiet hours.
+    edges:
+    - api-prefs
+  - text: It queues the message by priority and stores it until delivered.
+    edges:
+    - api-q
+    - q-store
+- id: deliver
+  name: Deliver to an open app
+  steps:
+  - text: The delivery service takes the most urgent messages first.
+    edges:
+    - q-deliv
+  - text: It pushes each one over the connection the app keeps open, numbered in order.
+    edges:
+    - deliv-app
+  - text: The app acknowledges, and the stored copy is deleted.
+    edges:
+    - deliv-app
+    - deliv-store
+- id: closed
+  name: The app is closed
+  steps:
+  - text: There is no open connection, so the message goes through Apple or Google's push service.
+    edges:
+    - deliv-os
+  - text: It appears on the lock screen or wakes the app.
+    edges:
+    - os-app
+  - text: When the app reconnects, it sends the last number it saw and gets anything it missed.
+    edges:
+    - deliv-app
+    - deliv-store
+requirements:
+  features:
+  - Push, in-app, SMS and email
+  - 'Priorities: urgent before promotional'
+  - Respect opt-outs and quiet hours
+  - Catch up after being offline
+  qualities:
+  - Urgent messages in about a second
+  - Never lost
+  - Rarely repeated, and harmless if it is
+  - Millions of connected phones
+numbers:
+  assumption: 'Our assumption: 100 million users receiving 20 notifications a day, with 20 million apps open at
+    once.'
+  rows:
+  - what: Messages
+    size: about 23,000 a second
+    how: 2 billion ÷ 86,400. Several times that at peak, such as dinner time.
+  - what: Open connections
+    size: 20 million
+    how: At 100,000 connections a server, about 200 delivery servers.
+decisions:
+- title: Push, not polling
+  text: Apps asking every few seconds wastes battery and servers. A held-open connection sends only when there is
+    news.
+- title: Store until acknowledged
+  text: A message is deleted only after the app says it arrived, so nothing is lost in a dropped connection.
+- title: Numbered messages
+  text: Sequence numbers let an app ask for exactly what it missed and ignore repeats.
+breaks:
+- what: A delivery server restarts.
+  fix: Its connections all reconnect at once. Spread reconnects out with random delays.
+- what: A promotional blast.
+  fix: It floods the queues. Low priority waits, so urgent messages still go first.
+- what: Poor mobile networks.
+  fix: Connections drop silently. Heartbeats detect it, and acks decide what to resend.
+companies:
+- name: Uber
+  text: Replaced apps polling for updates with a push platform, RAMEN, first built on server-sent events with sequence
+    numbers so a reconnecting app gets what it missed, and with messages in three priority buckets. It reached more
+    than 1.5 million concurrent connections and over 250,000 messages a second, then moved to gRPC bidirectional
+    streaming.
+  links:
+  - title: Uber's real-time push platform
+    publisher: Uber
+    year: '2020'
+    url: https://www.uber.com/blog/real-time-push-platform/
+    verified: true
+  - title: Uber's next gen push platform on gRPC
+    publisher: Uber
+    year: '2022'
+    url: https://www.uber.com/blog/ubers-next-gen-push-platform-on-grpc/
+    verified: true
+others: []

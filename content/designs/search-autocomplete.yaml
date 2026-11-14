@@ -1,0 +1,280 @@
+id: search-autocomplete
+title: Design search autocomplete
+like:
+- Google Search
+- Amazon search
+- YouTube search
+level: starter
+summary: Each keystroke asks for suggestions for what has been typed so far. The answers come from a prefix index
+  that already holds the top few completions for every popular prefix, built offline from past searches, cleaned
+  by a policy filter and nudged by what is trending right now. The hard parts are answering in tens of milliseconds,
+  keeping suggestions fresh, and keeping harmful ones out.
+stops:
+- trees-heaps
+- caching
+- api-styles
+- spark
+- messaging
+- data-warehousing
+diagram:
+  width: 1260
+  height: 650
+  nodes:
+  - id: user
+    name: Search box
+    sub: Types a query
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: Suggest service
+    sub: One call per keystroke
+    kind: service
+    icon: search
+    x: 350
+    y: 320
+    stop: api-styles
+  - id: cache
+    name: Hot prefixes
+    sub: Cached answers
+    kind: store
+    icon: cache
+    x: 350
+    y: 120
+    stop: caching
+  - id: index
+    name: Prefix index
+    sub: Top 10 per prefix
+    kind: store
+    icon: filter
+    x: 600
+    y: 320
+    stop: trees-heaps
+  - id: trend
+    name: Trending
+    sub: Rising right now
+    kind: service
+    icon: chart
+    x: 600
+    y: 520
+    stop: messaging
+  - id: logs
+    name: Search logs
+    sub: Every query
+    kind: store
+    icon: database
+    x: 850
+    y: 520
+    stop: data-warehousing
+  - id: build
+    name: Index builder
+    sub: Rebuilds regularly
+    kind: service
+    icon: clock
+    x: 850
+    y: 320
+    stop: spark
+  - id: policy
+    name: Policy filter
+    sub: Removes harmful ones
+    kind: service
+    icon: shield
+    x: 1120
+    y: 320
+  edges:
+  - id: u-api
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    label:
+      text: prefix
+      x: 228
+      y: 302
+      anchor: middle
+    two: true
+  - id: api-cache
+    pts:
+    - - 350
+      - 287.0
+    - - 350
+      - 153.0
+    label:
+      text: popular prefix?
+      x: 366
+      y: 224
+      anchor: start
+  - id: api-index
+    pts:
+    - - 440.0
+      - 320
+    - - 510.0
+      - 320
+    label:
+      text: look up
+      x: 475
+      y: 302
+      anchor: middle
+  - id: u-logs
+    pts:
+    - - 110
+      - 353.0
+    - - 110
+      - 610
+    - - 850
+      - 610
+    - - 850
+      - 553.0
+    label:
+      text: searches people finish
+      x: 480
+      y: 601
+      anchor: middle
+  - id: logs-build
+    pts:
+    - - 850
+      - 487.0
+    - - 850
+      - 353.0
+    label:
+      text: count
+      x: 866
+      y: 424
+      anchor: start
+  - id: build-policy
+    pts:
+    - - 940.0
+      - 320
+    - - 1030.0
+      - 320
+    label:
+      text: candidates
+      x: 985
+      y: 302
+      anchor: middle
+  - id: policy-index
+    pts:
+    - - 1120
+      - 287.0
+    - - 1120
+      - 230
+    - - 600
+      - 230
+    - - 600
+      - 287.0
+    label:
+      text: new index
+      x: 860
+      y: 221
+      anchor: middle
+  - id: logs-trend
+    pts:
+    - - 760.0
+      - 520
+    - - 690.0
+      - 520
+    label:
+      text: last hour
+      x: 725
+      y: 502
+      anchor: middle
+  - id: trend-index
+    pts:
+    - - 600
+      - 487.0
+    - - 600
+      - 353.0
+    label:
+      text: boost
+      x: 616
+      y: 424
+      anchor: start
+flows:
+- id: type
+  name: Type a letter
+  steps:
+  - text: After a short pause in typing, the box sends what has been typed so far.
+    edges:
+    - u-api
+  - text: Very common prefixes are answered straight from a cache.
+    edges:
+    - api-cache
+  - text: Otherwise the prefix index returns the stored top completions; no searching or sorting happens now.
+    edges:
+    - api-index
+  - text: The box shows them, usually within about 100 ms.
+    edges:
+    - u-api
+- id: build
+  name: Build the index
+  steps:
+  - text: Finished searches are logged.
+    edges:
+    - u-logs
+  - text: A batch job counts them, by language and place as well as overall.
+    edges:
+    - logs-build
+  - text: Candidates that break the rules are removed.
+    edges:
+    - build-policy
+  - text: The top completions for every prefix are written to a new index, which replaces the old one.
+    edges:
+    - policy-index
+- id: trend
+  name: Something is trending
+  steps:
+  - text: A fast job watches the last hour of searches for queries that are suddenly rising.
+    edges:
+    - logs-trend
+  - text: It boosts them in the live index, so they appear before the next full rebuild.
+    edges:
+    - trend-index
+requirements:
+  features:
+  - Suggest completions as you type
+  - Different by language and place
+  - Show trending searches
+  - Never suggest harmful or abusive completions
+  qualities:
+  - Answers within about 100 ms
+  - Copes with a request per keystroke
+  - Fresh within minutes for news
+  - Cheap per request
+numbers:
+  assumption: 'Our assumption: 5 billion searches a day, each sending about 4 suggestion requests.'
+  rows:
+  - what: Requests
+    size: about 230,000 a second
+    how: 20 billion ÷ 86,400. Typing pauses cut this down from one per letter.
+  - what: Index size
+    size: about 20 GB
+    how: 100 million prefixes × 10 completions × about 20 bytes. Fits in memory, copied to many servers.
+decisions:
+- title: Precompute the answers
+  text: Storing the top completions at every prefix turns each request into a single lookup.
+- title: Batch, plus a fast lane
+  text: A slow, thorough rebuild for most suggestions, and a quick job for what is trending now.
+- title: Wait for a pause
+  text: The box waits a moment between keystrokes before asking, which removes most requests.
+breaks:
+- what: Breaking news.
+  fix: The batch index is hours old. The trending job fills the gap.
+- what: A harmful suggestion appears.
+  fix: It needs removing everywhere quickly, so the filter list is applied at serving time too.
+- what: Very long queries.
+  fix: Few people typed exactly that. Predict the last few words instead of the whole query.
+companies:
+- name: Google
+  text: Predictions reflect real searches done on Google, adjusted for language and location, with freshness taken
+    into account so rising topics can appear. For long queries it may predict only part of the search. Automated
+    systems block predictions that break its policies, and enforcement teams remove those that slip through.
+  links:
+  - title: How Google autocomplete predictions are generated
+    publisher: Google
+    year: '2020'
+    url: https://blog.google/products/search/how-google-autocomplete-predictions-work/
+    verified: true
+others: []
