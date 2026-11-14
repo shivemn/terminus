@@ -791,6 +791,32 @@
   medium: watch
   note: Free to audit.
 
+- id: karpathy-recipe
+  title: A Recipe for Training Neural Networks
+  author: Andrej Karpathy
+  type: site
+  url: https://karpathy.github.io/2019/04/25/recipe/
+  free: true
+  medium: read
+
+- id: llm-c
+  title: llm.c
+  author: Andrej Karpathy
+  type: site
+  url: https://github.com/karpathy/llm.c
+  free: true
+  medium: practice
+  note: GPT-2 training in plain C and CUDA. The CPU version runs anywhere; the full runs need an NVIDIA GPU.
+
+- id: nanochat
+  title: nanochat
+  author: Andrej Karpathy
+  type: site
+  url: https://github.com/karpathy/nanochat
+  free: true
+  medium: practice
+  note: The code is free; the full run needs a rented 8-GPU node for a few hours.
+
 - id: karpathy-zero-to-hero
   title: "Neural Networks: Zero to Hero"
   author: Andrej Karpathy

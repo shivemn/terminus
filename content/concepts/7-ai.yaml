@@ -189,6 +189,10 @@
     - resource: udl-notebooks
       locator: "Notebooks for chapter 12"
       verified: true
+    - resource: llm-c
+      locator: 'train_gpt2.c, the 1,000-line CPU version, then reproducing GPT-2 (124M) from the quick start'
+      role: deep-dive
+      verified: true
 
 - id: computer-vision
   title: Computer vision
@@ -363,6 +367,10 @@
     - resource: kaggle-learn
       locator: "Intro to Deep Learning"
       verified: true
+    - resource: karpathy-recipe
+      locator: 'The whole post: become one with the data, a dumb baseline first, overfit, regularise, tune'
+      role: deep-dive
+      verified: true
 
 - id: mlops
   title: Putting models into production
@@ -457,6 +465,10 @@
     - resource: hf-llm-course
       locator: "Chapters 1–2"
       role: alternative
+      verified: true
+    - resource: nanochat
+      locator: 'The README, then runs/speedrun.sh, which tokenises, pretrains, fine-tunes, evaluates and serves a small chat model'
+      role: deep-dive
       verified: true
 
 - id: llm-apis
