@@ -1,0 +1,388 @@
+id: ai-assistant
+title: Design an AI assistant
+like:
+- ChatGPT
+- Claude
+- Gemini
+level: advanced
+summary: 'A chat service assembles the prompt: recent history trimmed to fit, relevant chunks from the person''s
+  files, and the new message, checked by guardrails. A model gateway picks a model and sends it to inference servers
+  that batch many requests on each GPU and stream tokens back as they''re made. Tools run in a sandbox when the
+  model asks. The hard parts are GPU cost and memory, the first word appearing within a second, and keeping tools
+  from being misused.'
+stops:
+- ai-system-design
+- inference-serving
+- rag
+- llm-apis
+- api-styles
+- caching
+- ai-security
+- observability
+diagram:
+  width: 1240
+  height: 600
+  nodes:
+  - id: app
+    name: Web and apps
+    sub: Streams the answer
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 320
+    w: 170
+  - id: gw
+    name: API gateway
+    sub: Token budgets
+    kind: service
+    icon: shield
+    x: 350
+    y: 320
+    stop: api-styles
+  - id: chat
+    name: Chat service
+    sub: Builds the prompt
+    kind: service
+    icon: message
+    x: 600
+    y: 320
+    stop: llm-apis
+  - id: guard
+    name: Guardrails
+    sub: Checks in and out
+    kind: service
+    icon: shield
+    x: 600
+    y: 120
+    stop: ai-security
+  - id: tools
+    name: Tool runners
+    sub: Sandboxed
+    kind: service
+    icon: terminal
+    x: 860
+    y: 120
+  - id: retr
+    name: Retrieval
+    sub: Chunks from files
+    kind: service
+    icon: search
+    x: 600
+    y: 520
+    stop: rag
+  - id: vec
+    name: Vector index
+    sub: Embedded files
+    kind: store
+    icon: database
+    x: 350
+    y: 520
+  - id: mgw
+    name: Model gateway
+    sub: Routing, cache
+    kind: service
+    icon: route
+    x: 860
+    y: 320
+    stop: ai-system-design
+  - id: inf
+    name: Inference servers
+    sub: Batching, KV cache
+    kind: service
+    icon: gpu
+    x: 1100
+    y: 320
+    stop: inference-serving
+  - id: prov
+    name: API provider
+    sub: Overflow, fallback
+    kind: external
+    icon: cloud
+    x: 1100
+    y: 120
+  - id: conv
+    name: Conversations
+    sub: History, token counts
+    kind: store
+    icon: database
+    x: 860
+    y: 520
+  - id: traces
+    name: Traces and evals
+    sub: Cost, latency, quality
+    kind: store
+    icon: chart
+    x: 1100
+    y: 520
+    stop: observability
+  edges:
+  - id: a-gw
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    label:
+      text: message
+      x: 228
+      y: 302
+      anchor: middle
+    two: true
+  - id: gw-chat
+    pts:
+    - - 440.0
+      - 320
+    - - 510.0
+      - 320
+    two: true
+  - id: chat-guard
+    pts:
+    - - 600
+      - 287.0
+    - - 600
+      - 153.0
+    label:
+      text: check
+      x: 616
+      y: 224
+      anchor: start
+    two: true
+  - id: chat-retr
+    pts:
+    - - 600
+      - 353.0
+    - - 600
+      - 487.0
+    label:
+      text: find chunks
+      x: 616
+      y: 424
+      anchor: start
+  - id: retr-vec
+    pts:
+    - - 510.0
+      - 520
+    - - 440.0
+      - 520
+  - id: chat-mgw
+    pts:
+    - - 690.0
+      - 320
+    - - 770.0
+      - 320
+    label:
+      text: prompt
+      x: 730
+      y: 302
+      anchor: middle
+    two: true
+  - id: mgw-inf
+    pts:
+    - - 950.0
+      - 320
+    - - 1010.0
+      - 320
+    two: true
+  - id: mgw-prov
+    pts:
+    - - 900
+      - 287.0
+    - - 900
+      - 120
+    - - 1010.0
+      - 120
+    label:
+      text: overflow
+      x: 916
+      y: 208
+      anchor: start
+    two: true
+  - id: chat-tools
+    pts:
+    - - 690.0
+      - 300
+    - - 720
+      - 300
+    - - 720
+      - 220
+    - - 820
+      - 220
+    - - 820
+      - 153.0
+    label:
+      text: run a tool
+      x: 770
+      y: 211
+      anchor: middle
+  - id: chat-conv
+    pts:
+    - - 690
+      - 340
+    - - 735
+      - 340
+    - - 735
+      - 520
+    - - 770
+      - 520
+    label:
+      text: save answer
+      x: 743
+      y: 440
+      anchor: start
+  - id: inf-traces
+    pts:
+    - - 1100
+      - 353.0
+    - - 1100
+      - 487.0
+    label:
+      text: tokens, latency
+      x: 1116
+      y: 424
+      anchor: start
+flows:
+- id: answer
+  name: Answer a message
+  steps:
+  - text: The app sends the message and opens a stream for the answer.
+    edges:
+    - a-gw
+  - text: The gateway checks the person's token budget.
+    edges:
+    - gw-chat
+  - text: Guardrails check the input.
+    edges:
+    - chat-guard
+  - text: The chat service loads recent history and trims or summarises it to fit the context budget.
+    edges:
+    - chat-conv
+  - text: The model gateway picks a model for the plan and task, and checks the cache.
+    edges:
+    - chat-mgw
+  - text: 'An inference server adds the request to a running batch: it reads the prompt (prefill), then writes token
+      by token (decode).'
+    edges:
+    - mgw-inf
+  - text: Tokens stream back to the app as they're made.
+    edges:
+    - mgw-inf
+    - chat-mgw
+    - gw-chat
+    - a-gw
+  - text: The finished answer is saved with its token counts, and the trace is recorded.
+    edges:
+    - chat-conv
+    - inf-traces
+- id: files
+  name: Ask about a file
+  steps:
+  - text: The person attaches a PDF. It's split into chunks and embedded into the vector index.
+    edges:
+    - retr-vec
+  - text: On each question, retrieval finds the chunks closest to it.
+    edges:
+    - chat-retr
+    - retr-vec
+  - text: Those chunks go into the prompt with the question, and the answer cites them.
+    edges:
+    - chat-mgw
+- id: tool
+  name: Use a tool
+  steps:
+  - text: The model asks for a tool, say a web search, with arguments.
+    edges:
+    - chat-mgw
+  - text: The arguments are checked, and actions with side effects need the person to confirm.
+    edges:
+    - chat-guard
+  - text: The tool runs in a sandbox and its result goes back into the conversation.
+    edges:
+    - chat-tools
+  - text: The model continues with the result.
+    edges:
+    - chat-mgw
+- id: overload
+  name: A launch day
+  steps:
+  - text: Traffic triples and GPU queues grow.
+    edges:
+    - mgw-inf
+  - text: The model gateway sends overflow to a smaller model or an outside API provider.
+    edges:
+    - mgw-prov
+  - text: Free-tier requests wait in a queue; paid plans keep their limits.
+    edges:
+    - gw-chat
+requirements:
+  features:
+  - Answers streamed as they're written
+  - Conversations saved across devices
+  - Questions about uploaded files
+  - Tools such as search and code
+  - Plans with different models and limits
+  qualities:
+  - First words within about a second
+  - Bounded, predictable cost per message
+  - Limits counted in tokens, not requests
+  - Tools can't be abused
+  - Keeps working if one model fails
+numbers:
+  assumption: 'Our assumption: 10 million people a day sending 10 messages each, with 2,000 tokens in and 400 out
+    per message.'
+  rows:
+  - what: Messages
+    size: about 1,200 a second
+    how: 100 million ÷ 86,400. About three times that at peak.
+  - what: Tokens written
+    size: about 460,000 a second
+    how: 1,160 messages × 400 tokens.
+  - what: Tokens read
+    size: about 2.3 million a second
+    how: 1,160 × 2,000 tokens of history and instructions. Reading is faster per token than writing.
+  - what: GPUs
+    size: roughly 200
+    how: 'Illustration only: if one batched server writes about 2,500 tokens a second, 460,000 ÷ 2,500 ≈ 185.'
+decisions:
+- title: Own servers plus a fallback
+  text: Self-hosted models with a serving engine give control over cost and latency; an API provider absorbs overflow.
+- title: Budgets in tokens
+  text: Requests vary hugely in cost. Tokens track it; request counts do not.
+- title: Summarise old turns
+  text: Keeps the prompt bounded and the first word fast, at some loss of detail.
+- title: Batching on the GPU
+  text: Serving many requests together keeps GPUs busy. The KV cache, not compute, usually limits how many fit.
+breaks:
+- what: A launch.
+  fix: GPU queues grow. Route overflow to a smaller model or an outside provider, and queue the free tier.
+- what: Long prompts.
+  fix: They starve short ones. Give long-context requests separate capacity and process prompts in chunks.
+- what: A poisoned web page.
+  fix: It tells the model to misuse a tool. Give tools the least access they need, confirm side effects, and check
+    tool arguments.
+companies:
+- name: vLLM
+  text: 'Found serving is limited by GPU memory for the KV cache (up to 1.7 GB per sequence in LLaMA-13B), with
+    60–80% wasted. PagedAttention stores it in blocks like virtual-memory pages, cutting waste below 4% and allowing
+    much larger batches: up to 24 times the throughput of Hugging Face Transformers in their tests.'
+  links:
+  - title: 'vLLM: easy, fast, and cheap LLM serving with PagedAttention'
+    publisher: vLLM team, UC Berkeley
+    year: '2023'
+    url: https://blog.vllm.ai/2023/06/20/vllm.html
+    verified: true
+- name: Hugging Face
+  text: 'Documents the techniques serving systems combine: lower precision, flash attention, and caching keys and
+    values so each new token reuses earlier work.'
+  links:
+  - title: Optimizing LLMs for speed and memory
+    publisher: Hugging Face
+    year: '2026'
+    url: https://huggingface.co/docs/transformers/llm_tutorial_optimization
+    verified: true
+others:
+- title: Building a generative AI platform
+  publisher: Chip Huyen
+  url: https://huyenchip.com/2024/07/25/genai-platform.html
+- title: Design ChatGPT
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/chatgpt

@@ -1,0 +1,338 @@
+id: delivery-dispatch
+title: Design food delivery dispatch
+like:
+- Swiggy
+- Zomato
+- Uber Eats
+- DoorDash
+level: advanced
+summary: Every partner's phone streams its location every few seconds into a geo index that keeps only the latest
+  position. Every few seconds, a dispatcher for each city takes all unassigned orders, asks for nearby partners
+  and predicted times, and solves for the best overall set of assignments, including combining orders. Offers go
+  out, and a decline puts the order back in the next batch. Half of it is a streaming system and half an optimisation
+  problem.
+stops:
+- messaging
+- redis
+- partitioning-replication
+- operations-research
+- machine-learning
+- reliability-patterns
+diagram:
+  width: 1060
+  height: 600
+  nodes:
+  - id: cust
+    name: Customer app
+    sub: Orders, tracks
+    kind: edge
+    icon: phone
+    x: 110
+    y: 130
+    w: 170
+  - id: rest
+    name: Restaurant app
+    sub: Accepts, cooks
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: partner
+    name: Partner app
+    sub: Delivers
+    kind: edge
+    icon: phone
+    x: 110
+    y: 510
+    w: 170
+  - id: orders
+    name: Order service
+    sub: Orders and status
+    kind: service
+    icon: cart
+    x: 360
+    y: 130
+  - id: eta
+    name: ETA service
+    sub: Prep, travel, delivery
+    kind: service
+    icon: clock
+    x: 860
+    y: 130
+    stop: machine-learning
+  - id: offer
+    name: Offer service
+    sub: Offers to partners
+    kind: service
+    icon: send
+    x: 600
+    y: 320
+  - id: disp
+    name: Dispatcher
+    sub: Per city, every few s
+    kind: service
+    icon: route
+    x: 860
+    y: 320
+    stop: operations-research
+  - id: locgw
+    name: Location gateway
+    sub: Checks GPS fixes
+    kind: service
+    icon: pin
+    x: 360
+    y: 510
+  - id: stream
+    name: Stream
+    sub: Kafka, by city
+    kind: store
+    icon: queue
+    x: 600
+    y: 510
+    stop: messaging
+  - id: geo
+    name: Geo index
+    sub: Latest positions, cells
+    kind: store
+    icon: pin
+    x: 860
+    y: 510
+    stop: redis
+  edges:
+  - id: c-o
+    pts:
+    - - 195.0
+      - 130
+    - - 270.0
+      - 130
+    label:
+      text: order
+      x: 232
+      y: 112
+      anchor: middle
+    two: true
+  - id: r-o
+    pts:
+    - - 195.0
+      - 320
+    - - 320
+      - 320
+    - - 320
+      - 163.0
+    label:
+      text: accept, ready time
+      x: 258
+      y: 311
+      anchor: middle
+  - id: o-eta
+    pts:
+    - - 450.0
+      - 130
+    - - 770.0
+      - 130
+    label:
+      text: estimate
+      x: 610
+      y: 112
+      anchor: middle
+  - id: o-disp
+    pts:
+    - - 400
+      - 163.0
+    - - 400
+      - 240
+    - - 820
+      - 240
+    - - 820
+      - 287.0
+    label:
+      text: unassigned orders
+      x: 610
+      y: 231
+      anchor: middle
+  - id: disp-eta
+    pts:
+    - - 900
+      - 287.0
+    - - 900
+      - 163.0
+    label:
+      text: times per pairing
+      x: 916
+      y: 229
+      anchor: start
+  - id: disp-geo
+    pts:
+    - - 860
+      - 353.0
+    - - 860
+      - 477.0
+    label:
+      text: nearby partners
+      x: 876
+      y: 419
+      anchor: start
+  - id: disp-offer
+    pts:
+    - - 770.0
+      - 320
+    - - 690.0
+      - 320
+    label:
+      text: assign
+      x: 730
+      y: 302
+      anchor: middle
+  - id: offer-p
+    pts:
+    - - 510.0
+      - 320
+    - - 470
+      - 320
+    - - 470
+      - 440
+    - - 150
+      - 440
+    - - 150
+      - 477.0
+    label:
+      text: 'offer: accept or decline'
+      x: 310
+      y: 431
+      anchor: middle
+    two: true
+  - id: p-loc
+    pts:
+    - - 195.0
+      - 510
+    - - 270.0
+      - 510
+    label:
+      text: GPS
+      x: 232
+      y: 492
+      anchor: middle
+  - id: loc-stream
+    pts:
+    - - 450.0
+      - 510
+    - - 510.0
+      - 510
+  - id: stream-geo
+    pts:
+    - - 690.0
+      - 510
+    - - 770.0
+      - 510
+    label:
+      text: position
+      x: 730
+      y: 492
+      anchor: middle
+flows:
+- id: assign
+  name: An order gets a partner
+  steps:
+  - text: The customer places the order and sees an estimated time.
+    edges:
+    - c-o
+    - o-eta
+  - text: The restaurant accepts and says when food will be ready.
+    edges:
+    - r-o
+  - text: Every few seconds the city's dispatcher collects unassigned orders.
+    edges:
+    - o-disp
+  - text: The geo index returns nearby available partners for each order.
+    edges:
+    - disp-geo
+  - text: The ETA service predicts travel to the restaurant, food-ready time and delivery time for each pairing.
+    edges:
+    - disp-eta
+  - text: The dispatcher scores every pairing and solves for the best overall assignment, combining orders where
+      routes line up.
+    nodes:
+    - disp
+  - text: Offers go out. A decline puts the order back into the next batch.
+    edges:
+    - disp-offer
+    - offer-p
+- id: gps
+  name: A location update
+  steps:
+  - text: The partner app sends a batch of GPS fixes.
+    edges:
+    - p-loc
+  - text: The gateway drops impossible jumps and publishes the rest to the city's stream.
+    edges:
+    - loc-stream
+  - text: The geo index updates the partner's latest position and cell.
+    edges:
+    - stream-geo
+  - text: If this partner is carrying an order, the customer's map moves.
+    nodes:
+    - cust
+requirements:
+  features:
+  - Order, and track the delivery live
+  - Each order assigned to a partner who can accept or decline
+  - Delivery-time estimates before and during
+  - Partners carry more than one order when routes line up
+  qualities:
+  - Assignment within seconds
+  - Locations from every partner every few seconds
+  - A failure in one city doesn't touch others
+  - Short waits at restaurants and fair earnings
+numbers:
+  assumption: 'Our assumption: 3 million orders a day and 300,000 partners online at the peak.'
+  rows:
+  - what: Orders
+    size: about 100 a second at peak
+    how: 35 a second on average; lunch and dinner about three times that.
+  - what: Location updates
+    size: 60,000 a second
+    how: 300,000 partners, one fix every 5 seconds each.
+  - what: Live location data
+    size: about 30 MB
+    how: 'Only the latest position matters for dispatch: 300,000 × 100 bytes, in memory.'
+decisions:
+- title: Batch, then solve
+  text: Matching all of a city's orders together every few seconds beats assigning one order at a time.
+- title: Split by city
+  text: Orders and partners rarely cross cities, so load and failures stay local.
+- title: Latest position in memory
+  text: Dispatch needs speed. The full history goes to the stream for analytics.
+breaks:
+- what: Rain.
+  fix: Orders double and partners halve. Raise incentives, quote longer times, and slow new orders before the dispatcher
+    drowns.
+- what: The solver runs long.
+  fix: Time-box it and use the best answer so far, or split the city into zones.
+- what: GPS errors.
+  fix: Partners teleport. Filter impossible speeds and fall back to the last good fix.
+companies:
+- name: Uber
+  text: 'Built H3, a hexagonal grid, for pricing and dispatch: for example, it measures supply and demand per hexagon
+    to set surge pricing. Hexagons reduce error when moving people are bucketed into cells. It open-sourced H3 in
+    2018.'
+  links:
+  - title: 'H3: Uber''s hexagonal hierarchical spatial index'
+    publisher: Uber Engineering
+    year: '2018'
+    url: https://www.uber.com/blog/h3/
+    verified: true
+- name: DoorDash
+  text: First solved dispatch as bipartite matching with the Hungarian algorithm, which was too slow and couldn't
+    combine deliveries. It moved to a mixed-integer program solved with Gurobi, run several times a minute on instances
+    split by region, and checked the new optimiser by running it alongside the old one.
+  links:
+  - title: Next-generation optimization for Dasher dispatch at DoorDash
+    publisher: DoorDash Engineering
+    year: '2020'
+    url: https://doordash.engineering/2020/02/28/next-generation-optimization-for-dasher-dispatch-at-doordash/
+    verified: true
+others:
+- title: Design a ride-sharing service like Uber
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/uber

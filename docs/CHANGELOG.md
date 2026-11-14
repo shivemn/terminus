@@ -2,6 +2,7 @@
 
 ## 14 November 2026
 
+- **Every design rebuilt around a diagram.** All nine designs now open with an architecture diagram you can follow request by request: pick a flow and each step lights up its path, and every box links to the stop that teaches it. The text is shorter. Numbers we assumed are labelled and sit next to real figures with their sources, and a panel on the right shows what each company published about its own system, from its own posts only. Every company link was opened before it went in, and the build refuses unchecked ones.
 - **24 more routes checked against job postings.** 644 Naukri listings, each opened and tagged, for routes from Salesforce developer to PLC engineer. Only listings matching the role count; thin markets were widened to 0–2 years and say so. Main changes: threat detection onto the hiring list for security engineers, monitoring for MLOps, accounting for risk analysts, APIs and cryptography for blockchain developers; a few tools that under 20% of listings name moved to the first year. Mainframe developer stays a draft because entry-level listings are too few. Method in research/postings/README.md.
 
 ## 11 November 2026

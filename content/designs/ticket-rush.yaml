@@ -1,0 +1,295 @@
+id: ticket-rush
+title: Design a ticket rush
+like:
+- IRCTC Tatkal
+- BookMyShow
+- Ticketmaster
+level: advanced
+summary: Far more people arrive than there are seats, all at the opening second. A waiting room at the edge lets
+  them in, in order, at the rate the booking system can take. Availability is shown from a cache, but a seat is
+  only held by a conditional update in the database, so it can never be sold twice. Unpaid holds expire and go back
+  on sale. The hard parts are contention on a handful of rows, fairness, and politely refusing most people quickly.
+stops:
+- database-internals
+- concurrency
+- caching
+- redis
+- scaling-load-balancing
+- reliability-patterns
+- api-styles
+diagram:
+  width: 1240
+  height: 600
+  nodes:
+  - id: user
+    name: Apps and browsers
+    sub: At the opening second
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: wait
+    name: Waiting room
+    sub: At the edge, in order
+    kind: external
+    icon: hourglass
+    x: 350
+    y: 320
+    stop: reliability-patterns
+  - id: avail
+    name: Availability
+    sub: Shows seats left
+    kind: service
+    icon: search
+    x: 610
+    y: 130
+  - id: cache
+    name: Cache
+    sub: Counts, a second old
+    kind: store
+    icon: cache
+    x: 870
+    y: 130
+    stop: caching
+  - id: book
+    name: Booking service
+    sub: Holds seats
+    kind: service
+    icon: ticket
+    x: 610
+    y: 320
+    stop: concurrency
+  - id: inv
+    name: Inventory DB
+    sub: Conditional updates
+    kind: store
+    icon: database
+    x: 870
+    y: 320
+    stop: database-internals
+  - id: pay
+    name: Payment service
+    sub: Within the hold
+    kind: service
+    icon: card
+    x: 610
+    y: 510
+    stop: api-styles
+  - id: gw
+    name: Payment gateway
+    sub: UPI, cards
+    kind: external
+    icon: bank
+    x: 870
+    y: 510
+  - id: exp
+    name: Expiry worker
+    sub: Releases unpaid holds
+    kind: service
+    icon: clock
+    x: 1110
+    y: 320
+  edges:
+  - id: u-w
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    label:
+      text: arrive
+      x: 228
+      y: 302
+      anchor: middle
+    two: true
+  - id: w-avail
+    pts:
+    - - 440.0
+      - 310
+    - - 480
+      - 310
+    - - 480
+      - 130
+    - - 520.0
+      - 130
+    label:
+      text: admitted
+      x: 496
+      y: 224
+      anchor: start
+    two: true
+  - id: w-book
+    pts:
+    - - 440.0
+      - 320
+    - - 520.0
+      - 320
+    two: true
+  - id: w-pay
+    pts:
+    - - 440.0
+      - 330
+    - - 480
+      - 330
+    - - 480
+      - 510
+    - - 520.0
+      - 510
+    two: true
+  - id: avail-cache
+    pts:
+    - - 700.0
+      - 130
+    - - 780.0
+      - 130
+  - id: book-inv
+    pts:
+    - - 700.0
+      - 320
+    - - 780.0
+      - 320
+    label:
+      text: hold
+      x: 740
+      y: 302
+      anchor: middle
+  - id: pay-gw
+    pts:
+    - - 700.0
+      - 510
+    - - 780.0
+      - 510
+    two: true
+  - id: pay-book
+    pts:
+    - - 610
+      - 477.0
+    - - 610
+      - 353.0
+    label:
+      text: 'paid: confirm'
+      x: 626
+      y: 419
+      anchor: start
+  - id: exp-inv
+    pts:
+    - - 1020.0
+      - 320
+    - - 960.0
+      - 320
+    label:
+      text: release
+      x: 990
+      y: 302
+      anchor: middle
+flows:
+- id: open
+  name: The opening second
+  steps:
+  - text: Half a million people arrive at once. Each is given a place in the waiting room.
+    edges:
+    - u-w
+  - text: The waiting room lets people in, in order, at the rate the booking system can take.
+    edges:
+    - w-avail
+    - w-book
+  - text: Availability comes from a cache a second or two old. Reads stay cheap.
+    edges:
+    - avail-cache
+  - text: 'The booking service tries to hold seats with one conditional update: it succeeds only if enough are still
+      free.'
+    edges:
+    - book-inv
+  - text: The decrement and the hold commit together, or the answer is 'none left', quickly.
+    edges:
+    - book-inv
+  - text: The person pays within the hold window, through the payment gateway.
+    edges:
+    - w-pay
+    - pay-gw
+  - text: If the hold is still valid, the booking is confirmed.
+    edges:
+    - pay-book
+- id: abandon
+  name: An abandoned hold
+  steps:
+  - text: The expiry worker finds holds past their deadline that aren't paid.
+    edges:
+    - exp-inv
+  - text: In one transaction it marks each hold expired and returns its seats.
+    edges:
+    - exp-inv
+  - text: If a payment arrives after expiry, it is refunded automatically.
+    edges:
+    - pay-gw
+requirements:
+  features:
+  - Search and see availability
+  - Hold seats while paying, released if not
+  - Confirmed booking or a waitlist
+  - Cancel and refund
+  qualities:
+  - A seat is never sold twice
+  - 10 to 100 times normal traffic at opening
+  - First come, first served, and bots don't win
+  - Queue people politely instead of erroring
+numbers:
+  assumption: 'Our assumption: half a million people try to book in the first minute after a popular quota opens.'
+  rows:
+  - what: Requests
+    size: about 40,000 a second
+    how: Five requests each (search, select, hold, retry) × 500,000 ÷ 60 seconds.
+  - what: Seats
+    size: a few thousand
+    how: 'Tiny next to demand: most answers must be ''sold out'' or ''waitlist'', fast.'
+  - what: Hold
+    size: 10 minutes
+    how: Long enough to pay by UPI or card, short enough that abandoned holds return.
+decisions:
+- title: A waiting room
+  text: Turns a stampede into a visible queue and keeps the booking system within the load it can take.
+- title: Holds in the database
+  text: A conditional update (only if seats are still free) makes overselling impossible, whatever the cache shows.
+- title: Stale counts on screen
+  text: Availability can lag a second or two. Correctness is enforced when the seat is held.
+- title: Idempotent holds
+  text: Frustrated people press again. The same key on a retry returns the same hold.
+breaks:
+- what: One event is too hot.
+  fix: Its rows can't keep up. Split seats into pools (by coach or section) handled in parallel.
+- what: Payments slow down.
+  fix: Holds expire mid-payment. Extend holds for payments in flight, and refund automatically when a booking fails.
+- what: Retry storms.
+  fix: Idempotency keys, back-off in the app, and a visible status instead of a spinner.
+companies:
+- name: Cloudflare
+  text: Launched its Waiting Room in 2021, first for overloaded vaccine registration sites. It queues visitors at
+    the edge and lets them in as others leave, so the site stays within its limits and nobody has to start again.
+  links:
+  - title: Cloudflare Waiting Room
+    publisher: Cloudflare
+    year: '2021'
+    url: https://blog.cloudflare.com/cloudflare-waiting-room/
+    verified: true
+- name: Stripe
+  text: Uses idempotency keys so a retried request can't create a second charge.
+  links:
+  - title: Designing robust and predictable APIs with idempotency
+    publisher: Stripe
+    year: '2017'
+    url: https://stripe.com/blog/idempotency
+    verified: true
+- name: Google
+  text: Its SRE book explains how overload cascades between services, and how load shedding, graceful degradation
+    and limited retries stop it.
+  links:
+  - title: Addressing cascading failures
+    publisher: Google SRE book
+    year: '2016'
+    url: https://sre.google/sre-book/addressing-cascading-failures/
+    verified: true
+others:
+- title: Design a ticket booking site like Ticketmaster
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/ticketmaster
