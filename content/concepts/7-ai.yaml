@@ -577,6 +577,11 @@
     - resource: hf-cookbook
       locator: "The RAG recipes"
       verified: true
+    - resource: openai-bootcamp-rag
+      locator: The whole recording
+      role: alternative
+      verified: true
+
 
 - id: llm-evaluation
   title: Evaluating LLM systems
@@ -785,6 +790,11 @@
       locator: 'All ten lessons: clients, tools, the server inspector, resources and prompts'
       role: alternative
       verified: true
+    - resource: openai-bootcamp-agents
+      locator: The whole recording
+      role: alternative
+      verified: true
+
 
 - id: fine-tuning
   title: Fine-tuning language models

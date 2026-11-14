@@ -31,6 +31,11 @@
     - resource: tryhackme
       locator: "Pre Security, then Cyber Security 101"
       verified: true
+    - resource: ibm-cybersecurity-start
+      locator: 'The whole course: the CIA triad, threats, data privacy and the tools defenders use'
+      role: alternative
+      verified: true
+
 
 - id: threat-detection
   title: Detecting attacks

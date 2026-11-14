@@ -3854,6 +3854,42 @@
   free: true
   medium: read
 
+- id: openai-bootcamp-rag
+  title: 'Builder Bootcamp: RAG'
+  author: OpenAI Academy
+  type: video
+  url: https://academy.openai.com/public/videos/builder-bootcamp-rag-2026-09-14
+  free: true
+  medium: watch
+  note: 'A one-hour recorded session: ingestion, vector stores, ranking, metadata and evaluating retrieval.'
+
+- id: openai-bootcamp-agents
+  title: 'Builder Bootcamp: Agents'
+  author: OpenAI Academy
+  type: video
+  url: https://academy.openai.com/public/videos/builder-bootcamp-agents-2026-08-31
+  free: true
+  medium: watch
+  note: 'A one-hour recorded session: tools, handoffs, orchestration and guardrails.'
+
+- id: ibm-cybersecurity-start
+  title: Getting Started with Cybersecurity
+  author: IBM SkillsBuild
+  type: course
+  url: https://skills.yourlearning.ibm.com/activity/PLAN-C7EE7CC95370?ngo-id=0302
+  free: true
+  medium: read
+  note: Free with a SkillsBuild account, and ends in an IBM digital credential. 1 to 3 hours.
+
+- id: ibm-cloud-fundamentals
+  title: Cloud Computing Fundamentals
+  author: IBM SkillsBuild
+  type: course
+  url: https://skills.yourlearning.ibm.com/activity/PLAN-2EC3A305F2C3?ngo-id=0302
+  free: true
+  medium: read
+  note: Free with a SkillsBuild account, and ends in an IBM digital credential. 3 to 10 hours.
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

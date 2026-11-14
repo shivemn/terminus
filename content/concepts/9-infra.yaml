@@ -164,6 +164,11 @@
     - resource: aws-overview
       locator: "The overview, then the sections on compute, storage, networking and security"
       verified: true
+    - resource: ibm-cloud-fundamentals
+      locator: 'The whole course: service and deployment models, then the Docker and Cloudant simulations'
+      role: alternative
+      verified: true
+
 
 - id: observability
   title: Monitoring and observability
