@@ -1,0 +1,265 @@
+id: key-value-store
+title: Design a key-value store
+like:
+- Amazon DynamoDB
+- Apache Cassandra
+- Riak
+level: advanced
+summary: Keys are hashed onto a ring, and each key is stored on the next few nodes around it. A write succeeds once
+  enough of those copies confirm, and a read asks enough of them to see the latest. Nodes find out about each other
+  by gossip; if one is down, another holds its writes and hands them back later. The hard parts are staying writable
+  during failures, copies that disagree, and adding nodes without downtime.
+stops:
+- hash-tables
+- partitioning-replication
+- distributed-systems
+- database-internals
+- reliability-patterns
+- networking
+diagram:
+  width: 1130
+  height: 600
+  nodes:
+  - id: app
+    name: App
+    sub: get / put
+    kind: edge
+    icon: server
+    x: 110
+    y: 320
+    w: 170
+  - id: router
+    name: Request router
+    sub: Hashes the key
+    kind: service
+    icon: route
+    x: 380
+    y: 320
+    stop: hash-tables
+  - id: r1
+    name: Replica 1
+    sub: Next node on the ring
+    kind: store
+    icon: database
+    x: 650
+    y: 120
+    stop: partitioning-replication
+  - id: r2
+    name: Replica 2
+    sub: Next after that
+    kind: store
+    icon: database
+    x: 650
+    y: 320
+  - id: r3
+    name: Replica 3
+    sub: And the next
+    kind: store
+    icon: database
+    x: 650
+    y: 520
+  - id: gossip
+    name: Membership
+    sub: Gossip about who is up
+    kind: service
+    icon: users
+    x: 960
+    y: 320
+    w: 200
+    stop: distributed-systems
+  - id: hint
+    name: Stand-in node
+    sub: Holds writes for a down node
+    kind: store
+    icon: box
+    x: 960
+    y: 520
+    w: 220
+    stop: reliability-patterns
+  edges:
+  - id: a-r
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    two: true
+  - id: r-1
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 120
+    - - 560.0
+      - 120
+    label:
+      text: write
+      x: 470
+      y: 102
+      anchor: middle
+  - id: r-2
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: write
+      x: 515
+      y: 302
+      anchor: middle
+    two: true
+  - id: r-3
+    pts:
+    - - 380
+      - 353.0
+    - - 380
+      - 520
+    - - 560.0
+      - 520
+    label:
+      text: write
+      x: 470
+      y: 502
+      anchor: middle
+  - id: 1-2
+    pts:
+    - - 650
+      - 153.0
+    - - 650
+      - 287.0
+    label:
+      text: compare (Merkle)
+      x: 666
+      y: 224
+      anchor: start
+    two: true
+  - id: 2-g
+    pts:
+    - - 740.0
+      - 320
+    - - 860.0
+      - 320
+    label:
+      text: gossip
+      x: 800
+      y: 302
+      anchor: middle
+    two: true
+  - id: h-3
+    pts:
+    - - 850.0
+      - 520
+    - - 740.0
+      - 520
+    label:
+      text: hand back
+      x: 795
+      y: 502
+      anchor: middle
+flows:
+- id: write
+  name: Write a key
+  steps:
+  - text: The router hashes the key to a point on the ring.
+    edges:
+    - a-r
+  - text: It sends the write to the next three nodes on the ring.
+    edges:
+    - r-1
+    - r-2
+    - r-3
+  - text: When two of the three confirm, the write succeeds; the third catches up.
+    edges:
+    - r-2
+    - a-r
+- id: read
+  name: Read a key
+  steps:
+  - text: The router asks two of the three replicas.
+    edges:
+    - r-1
+    - r-2
+  - text: If their versions disagree, it returns the newest, or both if they conflict, and repairs the stale copy.
+    edges:
+    - r-2
+    - a-r
+- id: down
+  name: A node is down
+  steps:
+  - text: Gossip spreads the news that replica 3 is not responding.
+    edges:
+    - 2-g
+  - text: Its writes go to a stand-in node instead, marked as belonging to replica 3.
+    nodes:
+    - hint
+  - text: When replica 3 returns, the stand-in hands the writes back.
+    edges:
+    - h-3
+  - text: In the background, replicas compare hash trees of their data to find and fix any other differences.
+    edges:
+    - 1-2
+requirements:
+  features:
+  - get and put by key
+  - Copies in several places
+  - Add and remove nodes live
+  - Tunable consistency
+  qualities:
+  - Always accepts writes
+  - Single-digit millisecond responses
+  - Survives node and data-centre failures
+  - Scales by adding machines
+numbers:
+  assumption: 'Our assumption: 1 million requests a second, 100 TB of data, 3 copies of everything.'
+  rows:
+  - what: Stored
+    size: 300 TB
+    how: 100 TB × 3 copies.
+  - what: Nodes
+    size: about 150
+    how: 300 TB ÷ 2 TB of usable disk each.
+  - what: Quorums
+    size: N=3, W=2, R=2
+    how: W + R > N, so every read overlaps the latest write.
+  realScale:
+  - name: DynamoDB
+    text: peaked at 192 million requests a second during Prime Day 2026, with single-digit millisecond responses.
+    source:
+      title: 'All the numbers: Amazon Prime Day 2026 powered by AWS'
+      publisher: AWS News Blog
+      year: '2026'
+      url: https://aws.amazon.com/blogs/aws/all-the-numbers-amazon-prime-day-2026-powered-by-aws/
+      verified: true
+decisions:
+- title: Consistent hashing
+  text: Adding a node moves only the keys next to it on the ring, not everything.
+- title: Quorums
+  text: Needing two of three copies rides out one failure while still seeing the latest write.
+- title: No leader
+  text: Any replica can take a write, so there is no single node whose failure stops writes.
+breaks:
+- what: Hot keys.
+  fix: One key on one set of nodes. Cache it, or split it.
+- what: Conflicting writes.
+  fix: Two copies change at once. Keep version history per key and merge, or let the last write win.
+- what: Uneven nodes.
+  fix: Give each machine many small points on the ring so load spreads evenly.
+companies:
+- name: Amazon
+  text: Built Dynamo so services such as the shopping cart could always write, even while disks and networks failed.
+    It combined consistent hashing, vector clocks reconciled on read, a sloppy quorum with hinted handoff, anti-entropy
+    using Merkle trees, and gossip-based membership; nodes can be added without manual repartitioning. DynamoDB,
+    Amazon's managed NoSQL service launched in 2012, peaked at 89.2 million requests a second on Prime Day 2021.
+  links:
+  - title: Amazon's Dynamo
+    publisher: All Things Distributed
+    year: '2007'
+    url: https://www.allthingsdistributed.com/2007/10/amazons_dynamo.html
+    verified: true
+  - title: 'Amazon DynamoDB: a scalable, predictably performant, and fully managed NoSQL database service'
+    publisher: USENIX ATC
+    year: '2022'
+    url: https://www.usenix.org/conference/atc22/presentation/elhemali
+    verified: true
+others: []

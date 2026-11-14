@@ -1,0 +1,282 @@
+id: web-crawler
+title: Design a web crawler
+like:
+- Googlebot
+- Common Crawl
+- Bingbot
+level: core
+summary: Crawling starts from known URLs and sitemaps. A frontier decides what to fetch next, keeping a queue per
+  site so no site is hit too fast and robots.txt is respected. Fetchers download pages in parallel; a parser saves
+  the content and pulls out links, and only links never seen before go back into the frontier. The hard parts are
+  politeness, endless duplicate and trap URLs, and deciding what to re-crawl.
+stops:
+- web-http
+- messaging
+- hash-tables
+- networking
+- distributed-systems
+- cloud-basics
+diagram:
+  width: 1300
+  height: 600
+  nodes:
+  - id: seeds
+    name: Seed URLs
+    sub: And sitemaps
+    kind: edge
+    icon: file
+    x: 110
+    y: 320
+    w: 170
+  - id: front
+    name: URL frontier
+    sub: A queue per site
+    kind: store
+    icon: queue
+    x: 380
+    y: 320
+    stop: messaging
+  - id: polite
+    name: Politeness
+    sub: robots.txt, pace per site
+    kind: service
+    icon: hourglass
+    x: 380
+    y: 120
+    w: 200
+    stop: web-http
+  - id: fetch
+    name: Fetchers
+    sub: Thousands in parallel
+    kind: service
+    icon: spider
+    x: 650
+    y: 320
+    stop: networking
+  - id: dns
+    name: DNS cache
+    sub: Names to addresses
+    kind: store
+    icon: globe
+    x: 650
+    y: 120
+    stop: caching
+  - id: parse
+    name: Parser
+    sub: Text and links
+    kind: service
+    icon: filter
+    x: 920
+    y: 320
+    stop: distributed-systems
+  - id: seen
+    name: Seen URLs
+    sub: Skip duplicates
+    kind: store
+    icon: database
+    x: 920
+    y: 520
+    stop: hash-tables
+  - id: store
+    name: Page store
+    sub: For indexing
+    kind: store
+    icon: box
+    x: 1180
+    y: 320
+    w: 170
+    stop: cloud-basics
+  edges:
+  - id: s-f
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: start
+      x: 242
+      y: 302
+      anchor: middle
+  - id: f-p
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 153.0
+    label:
+      text: allowed? when?
+      x: 396
+      y: 224
+      anchor: start
+  - id: f-fe
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: next URL
+      x: 515
+      y: 302
+      anchor: middle
+  - id: fe-dns
+    pts:
+    - - 650
+      - 287.0
+    - - 650
+      - 153.0
+    label:
+      text: resolve
+      x: 666
+      y: 224
+      anchor: start
+  - id: fe-pa
+    pts:
+    - - 740.0
+      - 320
+    - - 830.0
+      - 320
+    label:
+      text: page
+      x: 785
+      y: 302
+      anchor: middle
+  - id: pa-st
+    pts:
+    - - 1010.0
+      - 320
+    - - 1095.0
+      - 320
+    label:
+      text: save
+      x: 1052
+      y: 302
+      anchor: middle
+  - id: pa-seen
+    pts:
+    - - 920
+      - 353.0
+    - - 920
+      - 487.0
+    label:
+      text: links
+      x: 936
+      y: 424
+      anchor: start
+  - id: seen-f
+    pts:
+    - - 830.0
+      - 520
+    - - 380
+      - 520
+    - - 380
+      - 353.0
+    label:
+      text: new ones only
+      x: 605
+      y: 502
+      anchor: middle
+flows:
+- id: crawl
+  name: Crawl a page
+  steps:
+  - text: The frontier starts with seed URLs and sitemaps.
+    edges:
+    - s-f
+  - text: It picks a URL whose site hasn't been visited too recently, checking robots.txt.
+    edges:
+    - f-p
+  - text: A fetcher resolves the address from a DNS cache and downloads the page.
+    edges:
+    - f-fe
+    - fe-dns
+  - text: The parser saves the content for indexing.
+    edges:
+    - fe-pa
+    - pa-st
+- id: links
+  name: Follow links
+  steps:
+  - text: The parser pulls out every link on the page.
+    edges:
+    - pa-seen
+  - text: Links already seen are dropped; new ones go into the frontier, in the queue for their site.
+    edges:
+    - seen-f
+- id: slow
+  name: A site struggles
+  steps:
+  - text: The site starts returning errors or answering slowly.
+    edges:
+    - fe-pa
+    nodes:
+    - fetch
+  - text: The site's pace is lowered, so its queue is fetched less often.
+    edges:
+    - f-p
+requirements:
+  features:
+  - Discover pages by following links
+  - Respect robots.txt
+  - Re-crawl pages that change
+  - Store pages for indexing
+  qualities:
+  - Never overload a site
+  - Billions of pages a month
+  - Skip duplicates and traps
+  - Fresh where it matters
+numbers:
+  assumption: 'Our assumption: 4 billion pages a month, averaging 100 KB each.'
+  rows:
+  - what: Fetches
+    size: about 1,500 a second
+    how: 4 billion ÷ 2.6 million seconds in a month.
+  - what: Download
+    size: about 150 MB a second
+    how: 1,500 × 100 KB. About 400 TB a month before compression.
+  - what: Seen URLs
+    size: tens of billions
+    how: 'Stored as 8-byte hashes: hundreds of GB, split across machines.'
+decisions:
+- title: A queue per site
+  text: Grouping URLs by site makes it easy to wait between requests to the same server.
+- title: Hash the URLs
+  text: Comparing fixed-size hashes of normalised URLs makes the duplicate check fast and small.
+- title: Back off on errors
+  text: Errors and slow responses mean the site is struggling, so slow down.
+breaks:
+- what: Crawler traps.
+  fix: Calendars and filters create endless URLs. Cap pages per site and URL length.
+- what: Duplicate pages.
+  fix: The same page under many URLs. Hash the content too.
+- what: JavaScript-only pages.
+  fix: Plain fetching sees nothing. Render pages that need it in a headless browser.
+companies:
+- name: Google
+  text: There is no central registry of pages, so Googlebot finds new URLs through links on known pages and through
+    sitemaps. An algorithm decides which sites to crawl, how often and how many pages; it slows down when a site
+    responds with errors such as HTTP 500, respects robots.txt, and renders pages with a recent version of Chrome
+    to see content added by JavaScript.
+  links:
+  - title: In-depth guide to how Google Search works
+    publisher: Google Search Central
+    year: '2026'
+    url: https://developers.google.com/search/docs/fundamentals/how-search-works
+    verified: true
+- name: Common Crawl
+  text: A non-profit open repository of over 300 billion pages spanning 19 years, adding 3 to 5 billion new pages
+    a month. Its crawler, CCBot, respects robots.txt and runs from dedicated IP ranges with reverse DNS so sites
+    can check it is real.
+  links:
+  - title: Common Crawl
+    publisher: Common Crawl
+    year: '2026'
+    url: https://commoncrawl.org/
+    verified: true
+  - title: CCBot
+    publisher: Common Crawl
+    year: '2026'
+    url: https://commoncrawl.org/ccbot
+    verified: true
+others: []

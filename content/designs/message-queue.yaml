@@ -1,0 +1,276 @@
+id: message-queue
+title: Design a message queue
+like:
+- Apache Kafka
+- Amazon SQS
+- RabbitMQ
+level: advanced
+summary: 'A topic is split into partitions, and each partition is an append-only log on disk. Producers append;
+  followers copy the log, and a message counts as written once every in-sync copy has it. Consumers don''t delete
+  what they read: each group just remembers its position, an offset, so many groups can read the same log at their
+  own pace and replay it. The hard parts are ordering, never losing a message, and throughput.'
+stops:
+- messaging
+- partitioning-replication
+- file-systems
+- distributed-systems
+- os-processes-memory
+- reliability-patterns
+diagram:
+  width: 1100
+  height: 600
+  nodes:
+  - id: prod
+    name: Producers
+    sub: Apps sending events
+    kind: edge
+    icon: server
+    x: 110
+    y: 320
+    w: 170
+  - id: leader
+    name: Partition leader
+    sub: Appends to the log
+    kind: service
+    icon: file
+    x: 380
+    y: 320
+    stop: file-systems
+  - id: f1
+    name: Follower
+    sub: Copies the log
+    kind: store
+    icon: box
+    x: 380
+    y: 120
+    stop: partitioning-replication
+  - id: f2
+    name: Follower
+    sub: Copies the log
+    kind: store
+    icon: box
+    x: 380
+    y: 520
+  - id: ga
+    name: Consumer group A
+    sub: Each reads some partitions
+    kind: service
+    icon: users
+    x: 680
+    y: 320
+    w: 210
+    stop: messaging
+  - id: gb
+    name: Consumer group B
+    sub: Reads at its own pace
+    kind: service
+    icon: users
+    x: 680
+    y: 520
+    w: 210
+  - id: offs
+    name: Offsets
+    sub: Position per partition
+    kind: store
+    icon: counter
+    x: 960
+    y: 320
+    stop: database-internals
+  edges:
+  - id: p-l
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: append, by key
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: l-f1
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 153.0
+    label:
+      text: copy
+      x: 396
+      y: 224
+      anchor: start
+  - id: l-f2
+    pts:
+    - - 380
+      - 353.0
+    - - 380
+      - 487.0
+    label:
+      text: copy
+      x: 396
+      y: 424
+      anchor: start
+  - id: l-ga
+    pts:
+    - - 470.0
+      - 320
+    - - 575.0
+      - 320
+    label:
+      text: read
+      x: 522
+      y: 302
+      anchor: middle
+  - id: l-gb
+    pts:
+    - - 470.0
+      - 335
+    - - 520
+      - 335
+    - - 520
+      - 520
+    - - 575.0
+      - 520
+    label:
+      text: read
+      x: 536
+      y: 450
+      anchor: start
+  - id: ga-offs
+    pts:
+    - - 785.0
+      - 320
+    - - 870.0
+      - 320
+    label:
+      text: commit
+      x: 828
+      y: 302
+      anchor: middle
+  - id: gb-offs
+    pts:
+    - - 785.0
+      - 520
+    - - 960
+      - 520
+    - - 960
+      - 353.0
+    label:
+      text: commit
+      x: 872
+      y: 502
+      anchor: middle
+flows:
+- id: write
+  name: Write a message
+  steps:
+  - text: A producer sends a message. Its key picks the partition, so one user's events stay in order.
+    edges:
+    - p-l
+  - text: The partition leader appends it to the end of its log on disk.
+    nodes:
+    - leader
+  - text: Followers copy new entries from the leader.
+    edges:
+    - l-f1
+    - l-f2
+  - text: Once every in-sync copy has it, the message is committed and the producer is told.
+    edges:
+    - p-l
+- id: read
+  name: Read messages
+  steps:
+  - text: Each partition is read by exactly one member of a consumer group, so the group shares the work.
+    edges:
+    - l-ga
+  - text: The consumer reads a batch starting at its offset.
+    edges:
+    - l-ga
+  - text: After processing, it commits the new offset. Nothing is deleted.
+    edges:
+    - ga-offs
+- id: replay
+  name: A second reader
+  steps:
+  - text: Another group reads the same log independently, with its own offsets.
+    edges:
+    - l-gb
+    - gb-offs
+  - text: Either group can move its offset back to process old messages again.
+    nodes:
+    - offs
+- id: fail
+  name: The leader fails
+  steps:
+  - text: The leader stops responding.
+    nodes:
+    - leader
+  - text: A follower that was fully in sync becomes the new leader, so no committed message is lost.
+    nodes:
+    - f1
+  - text: Producers and consumers reconnect to it.
+    edges:
+    - p-l
+    - l-ga
+requirements:
+  features:
+  - Publish and subscribe to topics
+  - Many independent readers
+  - Replay from any point
+  - Keep messages for days
+  qualities:
+  - Millions of messages a second
+  - Order kept within a key
+  - Committed messages are never lost
+  - Readers can fall behind without hurting writers
+numbers:
+  assumption: 'Our assumption: 1 million messages a second of 1 KB each, kept for 7 days with 3 copies.'
+  rows:
+  - what: Write rate
+    size: 1 GB a second
+    how: 1 million × 1 KB, three times that across copies.
+  - what: Stored
+    size: about 1.8 PB
+    how: 1 GB × 86,400 × 7 days × 3 copies.
+  - what: Partitions
+    size: hundreds per topic
+    how: Enough that each partition gets a manageable share and many consumers can work in parallel.
+decisions:
+- title: A log, not a queue
+  text: Appending to a file and reading it in order is the fastest thing disks do, and it lets many groups read
+    the same data.
+- title: Offsets, not acknowledgements
+  text: A reader's progress is one number per partition, cheap to store and easy to rewind.
+- title: Lean on the operating system
+  text: Reading recent messages comes from the OS page cache, and data goes from file to network without copying
+    through the program.
+breaks:
+- what: A hot key.
+  fix: All of one key goes to one partition. Choose keys that spread load.
+- what: A slow consumer.
+  fix: It falls behind, but writers are unaffected. Add consumers, up to one per partition.
+- what: Exactly-once processing.
+  fix: A consumer can crash after processing but before committing. Make processing idempotent.
+companies:
+- name: LinkedIn
+  text: Created Kafka. By 2015 its Kafka clusters took in over 800 billion messages a day (175 TB), and 650 TB a
+    day were read back out. At peak it received over 13 million messages a second, on more than 1,100 brokers in
+    over 60 clusters.
+  links:
+  - title: Running Kafka at scale
+    publisher: LinkedIn Engineering
+    year: '2015'
+    url: https://engineering.linkedin.com/kafka/running-kafka-scale
+    verified: true
+- name: Apache Kafka
+  text: Each topic is divided into totally ordered partitions, each read by exactly one consumer in a group, so
+    a consumer's position is a single offset. A message is committed once all in-sync replicas have it. Kafka relies
+    on the OS page cache and the sendfile system call to move data from disk to network.
+  links:
+  - title: Kafka design
+    publisher: Apache Kafka
+    year: '2026'
+    url: https://kafka.apache.org/documentation/#design
+    verified: true
+others: []

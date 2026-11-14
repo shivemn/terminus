@@ -1,0 +1,243 @@
+id: distributed-cache
+title: Design a distributed cache
+like:
+- Memcached at Meta
+- Redis
+- Amazon ElastiCache
+level: core
+summary: Web servers ask the cache first and go to the database only on a miss, then fill the cache themselves.
+  Writes go to the database and delete the cached copy rather than updating it. A router spreads keys across many
+  cache servers, a stand-in pool covers servers that fail, and a daemon reading the database's commits broadcasts
+  deletes. The hard parts are stale data, a stampede when a hot key expires, and failures.
+stops:
+- caching
+- hash-tables
+- sql
+- messaging
+- reliability-patterns
+- networking
+diagram:
+  width: 1040
+  height: 600
+  nodes:
+  - id: web
+    name: Web servers
+    sub: Need data
+    kind: edge
+    icon: server
+    x: 110
+    y: 320
+    w: 170
+  - id: router
+    name: Router
+    sub: Picks a cache server
+    kind: service
+    icon: route
+    x: 380
+    y: 320
+    stop: hash-tables
+  - id: cache
+    name: Cache servers
+    sub: In memory
+    kind: store
+    icon: cache
+    x: 650
+    y: 320
+    stop: caching
+  - id: gutter
+    name: Stand-in pool
+    sub: Covers failed servers
+    kind: store
+    icon: shield
+    x: 920
+    y: 320
+    stop: reliability-patterns
+  - id: db
+    name: Database
+    sub: The source of truth
+    kind: store
+    icon: database
+    x: 380
+    y: 520
+    stop: sql
+  - id: inval
+    name: Invalidation daemon
+    sub: Reads commits
+    kind: service
+    icon: sync
+    x: 650
+    y: 520
+    w: 200
+    stop: messaging
+  edges:
+  - id: w-r
+    pts:
+    - - 195.0
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: get
+      x: 242
+      y: 302
+      anchor: middle
+    two: true
+  - id: r-c
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: by key
+      x: 515
+      y: 302
+      anchor: middle
+    two: true
+  - id: r-g
+    pts:
+    - - 380
+      - 287.0
+    - - 380
+      - 200
+    - - 920
+      - 200
+    - - 920
+      - 287.0
+    label:
+      text: server down
+      x: 650
+      y: 191
+      anchor: middle
+  - id: w-db
+    pts:
+    - - 110
+      - 353.0
+    - - 110
+      - 520
+    - - 290.0
+      - 520
+    label:
+      text: on a miss; writes
+      x: 200
+      y: 502
+      anchor: middle
+    two: true
+  - id: db-i
+    pts:
+    - - 470.0
+      - 520
+    - - 550.0
+      - 520
+    label:
+      text: commits
+      x: 510
+      y: 502
+      anchor: middle
+  - id: i-c
+    pts:
+    - - 650
+      - 487.0
+    - - 650
+      - 353.0
+    label:
+      text: delete keys
+      x: 666
+      y: 424
+      anchor: start
+flows:
+- id: hit
+  name: Read, cached
+  steps:
+  - text: A web server asks for a key.
+    edges:
+    - w-r
+  - text: The router hashes the key to one cache server, which returns the value.
+    edges:
+    - r-c
+- id: miss
+  name: Read, not cached
+  steps:
+  - text: 'The key is missing. The cache returns a lease: permission for this one server to fill it.'
+    edges:
+    - r-c
+  - text: The web server queries the database.
+    edges:
+    - w-db
+  - text: It sets the value with its lease. Others asking meanwhile are told to wait a moment, so the database sees
+      one query, not thousands.
+    edges:
+    - w-r
+    - r-c
+- id: write
+  name: Write
+  steps:
+  - text: The web server writes to the database.
+    edges:
+    - w-db
+  - text: A daemon reads the committed change and sends deletes for the affected keys to every cache cluster.
+    edges:
+    - db-i
+    - i-c
+  - text: The next read misses and refills with the new value.
+    edges:
+    - r-c
+- id: fail
+  name: A cache server fails
+  steps:
+  - text: Requests for its keys go to a small stand-in pool instead.
+    edges:
+    - r-g
+  - text: Misses there fill it from the database with short expiry, so the database is shielded.
+    edges:
+    - w-db
+    nodes:
+    - gutter
+requirements:
+  features:
+  - get, set, delete by key
+  - Spread across many servers
+  - Survive server failures
+  - Stay close to the database
+  qualities:
+  - Under a millisecond
+  - Billions of requests a second
+  - Stale data is rare and short-lived
+  - The database is protected
+numbers:
+  assumption: 'Our assumption: 10 million reads a second with a 99% hit rate, each value about 500 bytes.'
+  rows:
+  - what: Database reads
+    size: 100,000 a second
+    how: '1% of 10 million. At 90% hit rate it would be 1 million: hit rate matters enormously.'
+  - what: Memory for 1 billion items
+    size: about 500 GB
+    how: 1 billion × 500 bytes, spread over tens of servers.
+decisions:
+- title: Delete, not update
+  text: Deletes are idempotent and cannot leave an older value behind; the next read refills.
+- title: Look-aside
+  text: The app fills the cache; the cache is never the source of truth and may evict anything.
+- title: Leases
+  text: On a miss only one client fills the key, preventing stale writes and stampedes.
+breaks:
+- what: A hot key expires.
+  fix: Thousands miss at once and hit the database. Leases let one refill while others wait.
+- what: A cache server dies.
+  fix: Rehashing its keys would overload the others. Send them to a stand-in pool.
+- what: Stale reads after writes.
+  fix: Deletes can lag. Broadcast them from the commit log so none is missed.
+companies:
+- name: Meta (Facebook)
+  text: Uses memcached as a demand-filled look-aside cache, handling billions of requests a second and trillions
+    of items. Writes delete cached data rather than updating it, because deletes are idempotent. Leases stop stale
+    sets and thundering herds; for one set of hot keys they cut peak database queries from 17,000 to 1,300 a second.
+    A Gutter pool, about 1% of cache servers, takes over for failed ones, and daemons called mcsqueal read database
+    commits and broadcast deletes.
+  links:
+  - title: Scaling Memcache at Facebook
+    publisher: USENIX NSDI
+    year: '2013'
+    url: https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala
+    verified: true
+others: []
