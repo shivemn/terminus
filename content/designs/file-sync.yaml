@@ -1,0 +1,266 @@
+id: file-sync
+title: Design file sync
+like:
+- Dropbox
+- Google Drive
+- OneDrive
+level: core
+summary: The client splits each file into blocks of a few MB and names each by its hash. It asks which blocks the
+  server lacks, uploads only those, then commits the file as a list of hashes to a metadata service. Other devices
+  hear about the change, download the blocks they don't have, and rebuild the file. The hard parts are uploading
+  only what changed, conflicting edits, and storing exabytes durably.
+stops:
+- file-systems
+- hash-tables
+- partitioning-replication
+- distributed-systems
+- api-styles
+- cryptography
+diagram:
+  width: 1040
+  height: 650
+  nodes:
+  - id: laptop
+    name: Your laptop
+    sub: Sync client
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 150
+    w: 170
+  - id: phone
+    name: Your phone
+    sub: Sync client
+    kind: edge
+    icon: phone
+    x: 110
+    y: 520
+    w: 170
+  - id: meta
+    name: Metadata service
+    sub: File tree, versions
+    kind: service
+    icon: sync
+    x: 380
+    y: 320
+    stop: distributed-systems
+  - id: metadb
+    name: Metadata DB
+    sub: Sharded by user
+    kind: store
+    icon: database
+    x: 650
+    y: 320
+    stop: partitioning-replication
+  - id: blocks
+    name: Block service
+    sub: Takes new blocks
+    kind: service
+    icon: upload
+    x: 650
+    y: 150
+    stop: hash-tables
+  - id: store
+    name: Block storage
+    sub: By hash, erasure-coded
+    kind: store
+    icon: box
+    x: 920
+    y: 150
+    stop: file-systems
+  - id: notify
+    name: Notifier
+    sub: Tells devices
+    kind: service
+    icon: bell
+    x: 380
+    y: 520
+    stop: api-styles
+  edges:
+  - id: l-blocks
+    pts:
+    - - 195.0
+      - 150
+    - - 560.0
+      - 150
+    label:
+      text: upload missing blocks
+      x: 378
+      y: 132
+      anchor: middle
+  - id: blocks-store
+    pts:
+    - - 740.0
+      - 150
+    - - 830.0
+      - 150
+  - id: l-meta
+    pts:
+    - - 110
+      - 183.0
+    - - 110
+      - 320
+    - - 290.0
+      - 320
+    label:
+      text: 'commit: list of hashes'
+      x: 200
+      y: 302
+      anchor: middle
+    two: true
+  - id: meta-db
+    pts:
+    - - 470.0
+      - 320
+    - - 560.0
+      - 320
+    label:
+      text: new version
+      x: 515
+      y: 302
+      anchor: middle
+  - id: meta-notify
+    pts:
+    - - 380
+      - 353.0
+    - - 380
+      - 487.0
+    label:
+      text: changed
+      x: 396
+      y: 424
+      anchor: start
+  - id: notify-phone
+    pts:
+    - - 290.0
+      - 520
+    - - 195.0
+      - 520
+  - id: phone-meta
+    pts:
+    - - 150
+      - 487.0
+    - - 150
+      - 335
+    - - 290.0
+      - 335
+    label:
+      text: what changed?
+      x: 166
+      y: 430
+      anchor: start
+    two: true
+  - id: phone-store
+    pts:
+    - - 110
+      - 553.0
+    - - 110
+      - 610
+    - - 920
+      - 610
+    - - 920
+      - 183.0
+    label:
+      text: download missing blocks
+      x: 520
+      y: 601
+      anchor: middle
+flows:
+- id: save
+  name: Save a file
+  steps:
+  - text: The client splits the file into blocks of a few MB and hashes each one.
+    nodes:
+    - laptop
+  - text: It asks which hashes the server lacks. After a small edit, usually just one.
+    edges:
+    - l-meta
+  - text: It uploads only those blocks; storage keys them by hash, so identical blocks are stored once.
+    edges:
+    - l-blocks
+    - blocks-store
+  - text: 'It commits the new version: the file name and its list of block hashes.'
+    edges:
+    - l-meta
+    - meta-db
+- id: other
+  name: Another device catches up
+  steps:
+  - text: The notifier tells the phone something changed.
+    edges:
+    - meta-notify
+    - notify-phone
+  - text: The phone asks for changes since the last version it knows.
+    edges:
+    - phone-meta
+  - text: It downloads only the blocks it lacks and rebuilds the file.
+    edges:
+    - phone-store
+- id: conflict
+  name: Two edits at once
+  steps:
+  - text: Both devices edit the same file while offline.
+    nodes:
+    - laptop
+    - phone
+  - text: The first to commit wins. The second commit names a version that is no longer the latest, so it is refused.
+    edges:
+    - l-meta
+    - phone-meta
+  - text: The second device saves its version as a 'conflicted copy' instead of overwriting.
+    nodes:
+    - phone
+requirements:
+  features:
+  - Folders that sync across devices
+  - Version history
+  - Sharing
+  - Works offline and catches up
+  qualities:
+  - Never loses a file
+  - Uploads only what changed
+  - Edits show up on other devices in seconds
+  - Exabytes stored durably
+numbers:
+  assumption: 'Our assumption: 100 million users storing 10 GB each.'
+  rows:
+  - what: Stored
+    size: about 1 EB
+    how: 100 million × 10 GB, before deduplication and erasure coding.
+  - what: Block size
+    size: 4 MB
+    how: Small enough that edits upload little; large enough to keep the block count manageable.
+decisions:
+- title: Blocks named by hash
+  text: Unchanged blocks are never sent again, and identical blocks are stored once.
+- title: Metadata apart from content
+  text: The file tree is small and changes often; content is huge and written once. They need different stores.
+- title: Erasure coding
+  text: Stores data more cheaply than full copies while surviving the loss of several disks.
+breaks:
+- what: Conflicting edits.
+  fix: Keep both versions as a conflicted copy rather than guessing.
+- what: A huge shared folder.
+  fix: One change notifies thousands of devices. Batch notifications and let clients pull.
+- what: Disks fail daily.
+  fix: 'At exabyte scale, repair is continuous: re-create lost pieces from the erasure code.'
+companies:
+- name: Dropbox
+  text: Its storage system, Magic Pocket, stores blocks of up to 4 MB, compressed and encrypted and named by their
+    SHA-256 hash, erasure-coded across regions; it holds multiple exabytes. In 2020 it shipped Nucleus, a rewrite
+    of its sync engine in Rust, to all users.
+  links:
+  - title: Inside the Magic Pocket
+    publisher: Dropbox
+    year: '2016'
+    url: https://dropbox.tech/infrastructure/inside-the-magic-pocket
+    verified: true
+  - title: Rewriting the heart of our sync engine
+    publisher: Dropbox
+    year: '2020'
+    url: https://dropbox.tech/infrastructure/rewriting-the-heart-of-our-sync-engine
+    verified: true
+others:
+- title: Design a file storage service like Dropbox
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/dropbox

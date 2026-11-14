@@ -1,0 +1,310 @@
+id: video-on-demand
+title: Design video on demand
+like:
+- YouTube
+- Netflix
+level: core
+summary: An upload is stored as sent, then split into chunks that encoders process in parallel into a ladder of
+  qualities. The results are pushed to CDN caches, many inside internet providers, and the player picks the best
+  quality its connection can take, segment by segment. The hard parts are the encoding cost, choosing the right
+  qualities for each video, and serving huge volumes cheaply.
+stops:
+- cloud-basics
+- caching
+- messaging
+- web-http
+- networking
+- distributed-systems
+diagram:
+  width: 1240
+  height: 650
+  nodes:
+  - id: creator
+    name: Creator
+    sub: Uploads a video
+    kind: edge
+    icon: camera
+    x: 110
+    y: 120
+    w: 170
+  - id: upload
+    name: Upload service
+    sub: Resumable chunks
+    kind: service
+    icon: upload
+    x: 350
+    y: 120
+    stop: web-http
+  - id: raw
+    name: Raw uploads
+    sub: Stored as sent
+    kind: store
+    icon: box
+    x: 600
+    y: 120
+    stop: cloud-basics
+  - id: queue
+    name: Encode jobs
+    sub: One per chunk
+    kind: store
+    icon: queue
+    x: 850
+    y: 120
+    stop: messaging
+  - id: enc
+    name: Encoders
+    sub: A ladder of qualities
+    kind: service
+    icon: gpu
+    x: 1090
+    y: 120
+    stop: distributed-systems
+  - id: out
+    name: Encoded files
+    sub: Segments, playlists
+    kind: store
+    icon: box
+    x: 1090
+    y: 320
+    stop: cloud-basics
+  - id: cdn
+    name: CDN, ISP caches
+    sub: Near viewers
+    kind: external
+    icon: globe
+    x: 1090
+    y: 520
+    stop: caching
+  - id: viewer
+    name: Viewer
+    sub: Phone, TV, web
+    kind: edge
+    icon: phone
+    x: 110
+    y: 520
+    w: 170
+  - id: api
+    name: Playback API
+    sub: Picks a CDN, signs URL
+    kind: service
+    icon: key
+    x: 350
+    y: 520
+    stop: api-styles
+  - id: cat
+    name: Catalogue
+    sub: Titles, rights, progress
+    kind: store
+    icon: database
+    x: 350
+    y: 320
+  edges:
+  - id: c-up
+    pts:
+    - - 195.0
+      - 120
+    - - 260.0
+      - 120
+    label:
+      text: upload
+      x: 228
+      y: 102
+      anchor: middle
+    two: true
+  - id: up-raw
+    pts:
+    - - 440.0
+      - 120
+    - - 510.0
+      - 120
+    label:
+      text: save
+      x: 475
+      y: 102
+      anchor: middle
+  - id: raw-q
+    pts:
+    - - 690.0
+      - 120
+    - - 760.0
+      - 120
+    label:
+      text: chunks
+      x: 725
+      y: 102
+      anchor: middle
+  - id: q-enc
+    pts:
+    - - 940.0
+      - 120
+    - - 1000.0
+      - 120
+  - id: enc-out
+    pts:
+    - - 1090
+      - 153.0
+    - - 1090
+      - 287.0
+    label:
+      text: renditions
+      x: 1106
+      y: 224
+      anchor: start
+  - id: out-cdn
+    pts:
+    - - 1090
+      - 353.0
+    - - 1090
+      - 487.0
+    label:
+      text: fill caches
+      x: 1106
+      y: 424
+      anchor: start
+  - id: v-api
+    pts:
+    - - 195.0
+      - 520
+    - - 260.0
+      - 520
+    label:
+      text: play
+      x: 228
+      y: 502
+      anchor: middle
+    two: true
+  - id: api-cat
+    pts:
+    - - 350
+      - 487.0
+    - - 350
+      - 353.0
+    label:
+      text: rights, progress
+      x: 366
+      y: 424
+      anchor: start
+  - id: up-cat
+    pts:
+    - - 350
+      - 153.0
+    - - 350
+      - 287.0
+    label:
+      text: new title
+      x: 366
+      y: 224
+      anchor: start
+  - id: cdn-v
+    pts:
+    - - 1090
+      - 553.0
+    - - 1090
+      - 610
+    - - 110
+      - 610
+    - - 110
+      - 553.0
+    label:
+      text: segments, best quality that fits
+      x: 600
+      y: 601
+      anchor: middle
+flows:
+- id: upload
+  name: Upload a video
+  steps:
+  - text: The creator uploads in resumable chunks, so a dropped connection loses little.
+    edges:
+    - c-up
+  - text: The upload is saved as sent, and a catalogue entry is created.
+    edges:
+    - up-raw
+    - up-cat
+  - text: The video is split into chunks and one encode job is queued per chunk.
+    edges:
+    - raw-q
+  - text: Encoders work on chunks in parallel, each producing a ladder of resolutions and bitrates.
+    edges:
+    - q-enc
+  - text: Segments and playlists are saved and pushed out to CDN caches.
+    edges:
+    - enc-out
+    - out-cdn
+- id: watch
+  name: Watch a video
+  steps:
+  - text: The player asks the playback API to play a title.
+    edges:
+    - v-api
+  - text: The API checks rights and saved progress, picks a CDN and returns a signed playlist URL.
+    edges:
+    - api-cat
+    - v-api
+  - text: The player fetches segments from the nearest cache, switching quality as its bandwidth changes.
+    edges:
+    - cdn-v
+requirements:
+  features:
+  - Upload and process videos
+  - Watch on any device at the right quality
+  - Resume where you left off
+  - Search and browse a catalogue
+  qualities:
+  - Starts in a second or two
+  - Rarely buffers
+  - Uploads survive dropped connections
+  - Bandwidth is the main cost, so keep it low
+numbers:
+  assumption: 'Our assumption: 500 hours of new video a minute and 100 million hours watched a day.'
+  rows:
+  - what: Encoding
+    size: 30,000 hours a day
+    how: 500 hours × 60 minutes, each encoded into many qualities.
+  - what: Delivery
+    size: tens of Tbps at peak
+    how: 100 million hours a day at a few Mbps, concentrated in the evening.
+decisions:
+- title: Encode chunks in parallel
+  text: A two-hour film split into short chunks encodes in minutes instead of hours.
+- title: Qualities per title
+  text: Simple cartoons need far fewer bits than grainy action films. Choosing qualities per title saves bandwidth.
+- title: Caches inside ISPs
+  text: Serving from inside the viewer's internet provider is faster and cheaper than crossing the internet.
+breaks:
+- what: A hit release.
+  fix: Pre-position it in CDN caches before it goes live.
+- what: Encoding backlog.
+  fix: Encode the most-watched qualities first and the rest later.
+- what: A CDN region fails.
+  fix: The playback API steers players to another CDN.
+companies:
+- name: Netflix
+  text: Replaced one fixed bitrate ladder for all titles (topping out at 5,800 kbps) with per-title encoding, which
+    analyses each title's complexity to choose its qualities. Its Open Connect appliances are embedded in the networks
+    of more than a thousand internet providers, at no charge to them.
+  links:
+  - title: Per-title encode optimization
+    publisher: Netflix Technology Blog
+    year: '2015'
+    url: https://netflixtechblog.com/per-title-encode-optimization-7e99442b62a2
+    verified: true
+  - title: Netflix Open Connect
+    publisher: Netflix
+    year: '2026'
+    url: https://openconnect.netflix.com/en/
+    verified: true
+- name: YouTube
+  text: More than 500 hours of video are uploaded every minute on average. To transcode them, YouTube built its
+    own chip and a system around it, the Video (trans)Coding Unit, with up to 20–33 times better compute efficiency
+    than its previous software system.
+  links:
+  - title: Reimagining video infrastructure to empower YouTube
+    publisher: YouTube
+    year: '2021'
+    url: https://blog.youtube/inside-youtube/new-era-video-infrastructure/
+    verified: true
+others:
+- title: Design a video streaming platform like YouTube
+  publisher: Hello Interview
+  url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/youtube

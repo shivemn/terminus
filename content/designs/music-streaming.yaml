@@ -1,0 +1,264 @@
+id: music-streaming
+title: Design music streaming
+like:
+- Spotify
+- JioSaavn
+- YouTube Music
+level: starter
+summary: The catalogue and search answer what to play; the audio itself comes from a CDN, encoded at several qualities
+  so the app can pick one that suits the connection. Every play is sent back as an event, because plays decide royalties,
+  charts and recommendations. The hard parts are instant start and gapless playback, offline downloads, and counting
+  every play exactly once.
+stops:
+- api-styles
+- elasticsearch
+- caching
+- cloud-basics
+- messaging
+- spark
+diagram:
+  width: 1240
+  height: 600
+  nodes:
+  - id: app
+    name: App
+    sub: Plays, searches
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: api
+    name: API
+    sub: Tracks, playlists
+    kind: service
+    icon: server
+    x: 350
+    y: 320
+    stop: api-styles
+  - id: cat
+    name: Catalogue
+    sub: Tracks, albums, rights
+    kind: store
+    icon: database
+    x: 600
+    y: 120
+    stop: sql
+  - id: search
+    name: Search
+    sub: Tracks and artists
+    kind: service
+    icon: search
+    x: 600
+    y: 320
+    stop: elasticsearch
+  - id: cdn
+    name: CDN
+    sub: Audio near listeners
+    kind: external
+    icon: globe
+    x: 350
+    y: 520
+    stop: caching
+  - id: audio
+    name: Audio files
+    sub: Several qualities
+    kind: store
+    icon: music
+    x: 600
+    y: 520
+    stop: cloud-basics
+  - id: events
+    name: Event delivery
+    sub: Every play
+    kind: store
+    icon: queue
+    x: 850
+    y: 320
+    stop: messaging
+  - id: jobs
+    name: Batch jobs
+    sub: Royalties, charts, recs
+    kind: service
+    icon: chart
+    x: 1090
+    y: 320
+    stop: spark
+  edges:
+  - id: a-api
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    two: true
+  - id: api-cat
+    pts:
+    - - 350
+      - 287.0
+    - - 350
+      - 120
+    - - 510.0
+      - 120
+    label:
+      text: track details
+      x: 366
+      y: 208
+      anchor: start
+  - id: api-search
+    pts:
+    - - 440.0
+      - 320
+    - - 510.0
+      - 320
+    label:
+      text: search
+      x: 475
+      y: 302
+      anchor: middle
+  - id: a-cdn
+    pts:
+    - - 110
+      - 353.0
+    - - 110
+      - 520
+    - - 260.0
+      - 520
+    label:
+      text: audio, in chunks
+      x: 126
+      y: 440
+      anchor: start
+    two: true
+  - id: cdn-audio
+    pts:
+    - - 440.0
+      - 520
+    - - 510.0
+      - 520
+    label:
+      text: on a miss
+      x: 475
+      y: 502
+      anchor: middle
+  - id: a-events
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 40
+    - - 850
+      - 40
+    - - 850
+      - 287.0
+    label:
+      text: play events
+      x: 300
+      y: 31
+      anchor: middle
+  - id: ev-jobs
+    pts:
+    - - 940.0
+      - 320
+    - - 1000.0
+      - 320
+    label:
+      text: hourly
+      x: 970
+      y: 302
+      anchor: middle
+flows:
+- id: play
+  name: Play a song
+  steps:
+  - text: The app asks for a track. The API returns its details and where the audio is.
+    edges:
+    - a-api
+    - api-cat
+  - text: The app fetches audio from the CDN at a quality that suits the connection, starting with the first chunk.
+    edges:
+    - a-cdn
+  - text: The CDN fetches from storage only the first time anyone nearby plays it.
+    edges:
+    - cdn-audio
+  - text: The app buffers the next track before this one ends, so playback is gapless.
+    nodes:
+    - app
+  - text: It sends a play event.
+    edges:
+    - a-events
+- id: search
+  name: Search
+  steps:
+  - text: The app sends what the person typed.
+    edges:
+    - a-api
+  - text: The search service matches tracks, artists and albums, ranked by popularity.
+    edges:
+    - api-search
+- id: royalties
+  name: Count plays
+  steps:
+  - text: Play events from every app arrive at event delivery.
+    edges:
+    - a-events
+  - text: They are written out in hourly batches.
+    edges:
+    - ev-jobs
+  - text: Batch jobs turn them into royalty reports, charts and recommendation data.
+    nodes:
+    - jobs
+requirements:
+  features:
+  - Search and play any track
+  - Playlists and libraries
+  - Offline downloads
+  - Quality that adapts to the connection
+  qualities:
+  - Starts almost instantly
+  - Gapless between tracks
+  - Every play counted once
+  - Works on poor networks
+numbers:
+  assumption: 'Our assumption: 50 million listeners a day, 2 hours each, at 160 kbps.'
+  rows:
+  - what: Listening
+    size: 100 million hours a day
+    how: 50 million × 2 hours.
+  - what: Average bandwidth
+    size: about 670 Gbps
+    how: 100 million hours × 160 kbps ÷ 86,400 seconds. Evenings are several times higher.
+  - what: Play events
+    size: about 17,000 a second
+    how: 'About 30 tracks each a day: 1.5 billion ÷ 86,400.'
+decisions:
+- title: Audio from a CDN
+  text: Songs are small and popular ones are played constantly, so caches near listeners do almost all the work.
+- title: Several qualities
+  text: Low quality on mobile data, high on Wi-Fi, chosen by the app.
+- title: Plays as events
+  text: Royalties depend on plays, so events are delivered reliably and counted in batch rather than updated live.
+breaks:
+- what: A big album drops.
+  fix: Millions play the same tracks at midnight. Push them to CDN caches in advance.
+- what: Event delivery falls behind.
+  fix: Apps keep events and resend them; batch jobs wait for a complete hour before counting.
+- what: Offline listening.
+  fix: Plays happen without a connection. The app stores events and sends them later.
+companies:
+- name: Spotify
+  text: 'Offers qualities from about 24 kbps (Low) to 320 kbps (Very high), plus lossless FLAC up to 24-bit/44.1
+    kHz; the web player uses AAC at 128 or 256 kbps. Every action in the app, such as playing a song, is sent as
+    an event: by 2016 its event delivery moved more than 700,000 events a second, written out as hourly batches.'
+  links:
+  - title: Audio quality
+    publisher: Spotify Support
+    year: '2026'
+    url: https://support.spotify.com/us/article/audio-quality/
+    verified: true
+  - title: 'Spotify''s event delivery: the road to the cloud (part I)'
+    publisher: Spotify Engineering
+    year: '2016'
+    url: https://engineering.atspotify.com/2016/02/spotifys-event-delivery-the-road-to-the-cloud-part-i
+    verified: true
+others: []

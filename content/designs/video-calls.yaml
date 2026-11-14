@@ -1,0 +1,265 @@
+id: video-calls
+title: Design video calls
+like:
+- Zoom
+- Google Meet
+- Discord voice
+level: core
+summary: A signalling service tells everyone in a call which media server to use; the media itself flows over UDP
+  to a selective forwarding unit (SFU), which forwards each person's stream to the others without mixing it. Senders
+  can send several qualities so the server forwards what each receiver can take. The hard parts are latency, networks
+  that block UDP, and calls with hundreds of people.
+stops:
+- networking
+- api-styles
+- redis
+- scaling-load-balancing
+- reliability-patterns
+diagram:
+  width: 1060
+  height: 540
+  nodes:
+  - id: a
+    name: Caller
+    sub: Camera and mic
+    kind: edge
+    icon: phone
+    x: 110
+    y: 110
+    w: 170
+  - id: b
+    name: Others in the call
+    sub: Phones, laptops
+    kind: edge
+    icon: laptop
+    x: 110
+    y: 450
+    w: 170
+  - id: sig
+    name: Signalling
+    sub: Join, offers, routes
+    kind: service
+    icon: gateway
+    x: 380
+    y: 280
+    stop: api-styles
+  - id: rooms
+    name: Rooms
+    sub: Who is in each call
+    kind: store
+    icon: heartbeat
+    x: 650
+    y: 280
+    stop: redis
+  - id: sfu
+    name: Media server (SFU)
+    sub: Forwards streams
+    kind: service
+    icon: arrows
+    x: 650
+    y: 110
+    w: 200
+    stop: networking
+  - id: turn
+    name: TURN relay
+    sub: When UDP is blocked
+    kind: external
+    icon: globe
+    x: 940
+    y: 110
+  - id: rec
+    name: Recording
+    sub: Optional
+    kind: service
+    icon: video
+    x: 940
+    y: 450
+    stop: cloud-basics
+  edges:
+  - id: a-sig
+    pts:
+    - - 110
+      - 143.0
+    - - 110
+      - 280
+    - - 290.0
+      - 280
+    label:
+      text: join
+      x: 200
+      y: 262
+      anchor: middle
+  - id: b-sig
+    pts:
+    - - 195.0
+      - 435
+    - - 380
+      - 435
+    - - 380
+      - 313.0
+    label:
+      text: join
+      x: 288
+      y: 417
+      anchor: middle
+  - id: sig-rooms
+    pts:
+    - - 470.0
+      - 280
+    - - 560.0
+      - 280
+    label:
+      text: join room
+      x: 515
+      y: 262
+      anchor: middle
+  - id: rooms-sfu
+    pts:
+    - - 650
+      - 247.0
+    - - 650
+      - 143.0
+    label:
+      text: assign server
+      x: 666
+      y: 199
+      anchor: start
+  - id: a-sfu
+    pts:
+    - - 195.0
+      - 110
+    - - 550.0
+      - 110
+    label:
+      text: audio, video (UDP)
+      x: 372
+      y: 92
+      anchor: middle
+    two: true
+  - id: b-sfu
+    pts:
+    - - 195.0
+      - 465
+    - - 500
+      - 465
+    - - 500
+      - 130
+    - - 550.0
+      - 130
+    label:
+      text: audio, video (UDP)
+      x: 400
+      y: 456
+      anchor: middle
+    two: true
+  - id: sfu-turn
+    pts:
+    - - 750.0
+      - 110
+    - - 850.0
+      - 110
+    label:
+      text: fallback
+      x: 800
+      y: 92
+      anchor: middle
+    two: true
+  - id: sfu-rec
+    pts:
+    - - 750.0
+      - 130
+    - - 800
+      - 130
+    - - 800
+      - 360
+    - - 940
+      - 360
+    - - 940
+      - 417.0
+    label:
+      text: copy of streams
+      x: 870
+      y: 351
+      anchor: middle
+flows:
+- id: join
+  name: Join a call
+  steps:
+  - text: The app asks signalling to join the call.
+    edges:
+    - a-sig
+  - text: Signalling adds it to the room and points it to a media server, usually the one already hosting the call.
+    edges:
+    - sig-rooms
+    - rooms-sfu
+  - text: The app and the server agree on codecs and how to reach each other.
+    edges:
+    - a-sig
+  - text: Media starts flowing over UDP to the media server.
+    edges:
+    - a-sfu
+- id: talk
+  name: Talk
+  steps:
+  - text: Each sender sends its audio and video once, to the media server.
+    edges:
+    - a-sfu
+  - text: The server forwards each stream to everyone else without decoding or mixing it.
+    edges:
+    - b-sfu
+  - text: It forwards a lower quality to people on weak connections, and only active speakers in big calls.
+    nodes:
+    - sfu
+  - text: If a network blocks UDP, traffic goes through a TURN relay instead.
+    edges:
+    - sfu-turn
+requirements:
+  features:
+  - One-to-one and group calls
+  - Audio, video and screen sharing
+  - Join from a link
+  - Recording
+  qualities:
+  - About 150 ms or less mouth to ear
+  - Adapts to bad networks
+  - Works behind strict firewalls
+  - Calls of hundreds of people
+numbers:
+  assumption: 'Our assumption: 1 million people in calls at once, each sending 1.5 Mbps of video and receiving three
+    streams.'
+  rows:
+  - what: Into media servers
+    size: 1.5 Tbps
+    how: 1 million senders × 1.5 Mbps.
+  - what: Out of media servers
+    size: about 4.5 Tbps
+    how: Three forwarded streams per person. Forwarding, not mixing, keeps CPU cost low.
+decisions:
+- title: Through a server
+  text: Peer-to-peer works for two people, but each sender would upload one copy per participant. A forwarding server
+    needs one upload.
+- title: Forward, don't mix
+  text: An SFU forwards streams as they are, so it uses little CPU and adds little delay. Mixing happens on each
+    device.
+- title: UDP, with a fallback
+  text: Late audio is useless, so lost packets are not resent. A TURN relay covers networks that block UDP.
+breaks:
+- what: One media server overloads.
+  fix: Large calls are split across linked servers in different regions.
+- what: Packet loss.
+  fix: Error correction and lower quality layers keep audio going.
+- what: Attacks on servers.
+  fix: Routing all media through your servers hides users' IP addresses; spread capacity across providers.
+companies:
+- name: Discord
+  text: Routes voice through its own servers rather than peer-to-peer, which gets too expensive as calls grow and
+    would expose users' IP addresses. Each voice server has a signalling part and a selective forwarding unit. It
+    ran more than 850 voice servers in 13 regions, serving over 2.6 million concurrent voice users with more than
+    220 Gbps of egress.
+  links:
+  - title: How Discord handles two and half million concurrent voice users using WebRTC
+    publisher: Discord
+    year: '2018'
+    url: https://discord.com/blog/how-discord-handles-two-and-half-million-concurrent-voice-users-using-webrtc
+    verified: true
+others: []

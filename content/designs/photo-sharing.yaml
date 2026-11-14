@@ -1,0 +1,311 @@
+id: photo-sharing
+title: Design a photo sharing app
+like:
+- Instagram
+- Pinterest
+level: core
+summary: The app uploads the photo once; a task queue then makes the smaller sizes in the background, so posting
+  feels instant. Photos live in object storage and are served from a CDN; everything else (posts, likes, follows)
+  lives in a database sharded by ID. The hard parts are IDs that work across shards, keeping uploads fast, and serving
+  billions of images cheaply.
+stops:
+- cloud-basics
+- caching
+- messaging
+- partitioning-replication
+- redis
+- api-styles
+diagram:
+  width: 1240
+  height: 640
+  nodes:
+  - id: app
+    name: App
+    sub: Posts, scrolls
+    kind: edge
+    icon: phone
+    x: 110
+    y: 320
+    w: 170
+  - id: upload
+    name: Upload service
+    sub: Takes the photo
+    kind: service
+    icon: upload
+    x: 350
+    y: 120
+    stop: api-styles
+  - id: queue
+    name: Task queue
+    sub: Resize jobs
+    kind: store
+    icon: queue
+    x: 600
+    y: 120
+    stop: messaging
+  - id: resizer
+    name: Resizers
+    sub: Thumbnails, sizes
+    kind: service
+    icon: filter
+    x: 850
+    y: 120
+  - id: obj
+    name: Object storage
+    sub: Original and sizes
+    kind: store
+    icon: box
+    x: 1090
+    y: 120
+    stop: cloud-basics
+  - id: cdn
+    name: CDN
+    sub: Serves images
+    kind: external
+    icon: globe
+    x: 1090
+    y: 320
+    stop: caching
+  - id: api
+    name: API
+    sub: Posts, likes, feeds
+    kind: service
+    icon: server
+    x: 350
+    y: 320
+    stop: scaling-load-balancing
+  - id: db
+    name: Metadata DB
+    sub: Sharded by ID
+    kind: store
+    icon: database
+    x: 600
+    y: 320
+    stop: partitioning-replication
+  - id: cache
+    name: Feed cache
+    sub: Redis
+    kind: store
+    icon: cache
+    x: 600
+    y: 520
+    stop: redis
+  edges:
+  - id: a-up
+    pts:
+    - - 110
+      - 287.0
+    - - 110
+      - 120
+    - - 260.0
+      - 120
+    label:
+      text: upload photo
+      x: 126
+      y: 208
+      anchor: start
+  - id: up-obj
+    pts:
+    - - 350
+      - 87.0
+    - - 350
+      - 40
+    - - 1090
+      - 40
+    - - 1090
+      - 87.0
+    label:
+      text: save original
+      x: 450
+      y: 31
+      anchor: middle
+  - id: up-q
+    pts:
+    - - 440.0
+      - 120
+    - - 510.0
+      - 120
+    label:
+      text: resize job
+      x: 475
+      y: 102
+      anchor: middle
+  - id: q-res
+    pts:
+    - - 690.0
+      - 120
+    - - 760.0
+      - 120
+  - id: res-obj
+    pts:
+    - - 940.0
+      - 120
+    - - 1000.0
+      - 120
+    label:
+      text: save sizes
+      x: 970
+      y: 102
+      anchor: middle
+  - id: a-api
+    pts:
+    - - 195.0
+      - 320
+    - - 260.0
+      - 320
+    label:
+      text: post, feed
+      x: 228
+      y: 302
+      anchor: middle
+    two: true
+  - id: api-db
+    pts:
+    - - 440.0
+      - 320
+    - - 510.0
+      - 320
+    label:
+      text: post row
+      x: 475
+      y: 302
+      anchor: middle
+  - id: api-cache
+    pts:
+    - - 350
+      - 353.0
+    - - 350
+      - 520
+    - - 510.0
+      - 520
+    label:
+      text: feed IDs
+      x: 366
+      y: 440
+      anchor: start
+  - id: obj-cdn
+    pts:
+    - - 1090
+      - 153.0
+    - - 1090
+      - 287.0
+    label:
+      text: on a miss
+      x: 1106
+      y: 224
+      anchor: start
+  - id: cdn-app
+    pts:
+    - - 1090
+      - 353.0
+    - - 1090
+      - 600
+    - - 110
+      - 600
+    - - 110
+      - 353.0
+    label:
+      text: images, nearest copy
+      x: 600
+      y: 591
+      anchor: middle
+flows:
+- id: post
+  name: Post a photo
+  steps:
+  - text: The app uploads the full-size photo.
+    edges:
+    - a-up
+  - text: The upload service saves the original to object storage.
+    edges:
+    - up-obj
+  - text: It queues a job to make the smaller sizes, and answers straight away.
+    edges:
+    - up-q
+  - text: Resizers make thumbnails and feed sizes and save them next to the original.
+    edges:
+    - q-res
+    - res-obj
+  - text: The app then sends the post itself. It gets an ID that says which shard it lives on.
+    edges:
+    - a-api
+    - api-db
+- id: scroll
+  name: Scroll the feed
+  steps:
+  - text: The app asks for the feed. The API reads the person's list of post IDs from the cache.
+    edges:
+    - a-api
+    - api-cache
+  - text: It fetches those posts from the sharded database in one batch.
+    edges:
+    - api-db
+  - text: The app downloads each image from the CDN at the size it needs.
+    edges:
+    - cdn-app
+  - text: The CDN fetches an image from object storage only the first time anyone nearby asks.
+    edges:
+    - obj-cdn
+requirements:
+  features:
+  - Post photos with captions
+  - Follow people and see a feed
+  - Like and comment
+  - Profiles and photo grids
+  qualities:
+  - Posting feels instant
+  - Images load fast anywhere
+  - Photos are never lost
+  - Cheap to store billions of images
+numbers:
+  assumption: 'Our assumption: 100 million photos a day, kept in four sizes.'
+  rows:
+  - what: Uploads
+    size: about 1,200 a second
+    how: 100 million ÷ 86,400. Several times that at peak.
+  - what: New storage
+    size: about 300 TB a day
+    how: About 3 MB for the original and sizes together × 100 million.
+  - what: Image reads
+    size: hundreds of thousands a second
+    how: Each photo is viewed many times, almost all served by the CDN.
+decisions:
+- title: Resize in the background
+  text: The upload answers as soon as the original is safe; sizes are made from a queue.
+- title: Photos in object storage
+  text: Cheap, durable and built for huge files. The database holds only metadata.
+- title: IDs that carry the shard
+  text: Putting the shard number inside each ID means any server can find a row without a lookup table.
+breaks:
+- what: A celebrity posts.
+  fix: Millions request one image. The CDN absorbs it, as long as caches are warm before the rush.
+- what: The resize queue backs up.
+  fix: Show the original scaled down until the sizes exist, and add workers.
+- what: One shard fills up.
+  fix: Start with many logical shards on few servers, and move whole shards later.
+companies:
+- name: Instagram
+  text: Early on, photos went straight to Amazon S3 and were served through CloudFront. Redis powered the main feed
+    and sessions, PostgreSQL held users and photo metadata, sharded, and slow work such as sharing went through
+    a task queue (Gearman) so uploads finished quickly.
+  links:
+  - title: 'What powers Instagram: hundreds of instances, dozens of technologies'
+    publisher: Instagram Engineering
+    year: '2011'
+    url: https://medium.com/instagram-engineering/what-powers-instagram-hundreds-of-instances-dozens-of-technologies-adf2e22da2ad
+    verified: true
+  - title: Sharding & IDs at Instagram
+    publisher: Instagram Engineering
+    year: '2012'
+    url: https://medium.com/instagram-engineering/sharding-ids-at-instagram-1cf5a71e5a5c
+    verified: true
+- name: Pinterest
+  text: Sharded MySQL from early 2012, starting with eight servers each replicated to a backup. Every ID is 64 bits
+    holding a 16-bit shard ID, a 10-bit type and a 36-bit local ID, and 4,096 shards were opened at first.
+  links:
+  - title: 'Sharding Pinterest: how we scaled our MySQL fleet'
+    publisher: Pinterest Engineering
+    year: '2015'
+    url: https://medium.com/pinterest-engineering/sharding-pinterest-how-we-scaled-our-mysql-fleet-3f341e96ca6f
+    verified: true
+others: []
