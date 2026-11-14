@@ -41,7 +41,7 @@ export function GET() {
       title: d.title,
       area: '',
       summary: d.summary,
-      sources: `${d.like} system design case study`,
+      sources: `${d.like.join(' ')} system design case study`,
       href: `/designs/${d.id}`,
       label: 'Design',
     });

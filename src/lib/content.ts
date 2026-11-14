@@ -165,7 +165,19 @@ export function checkContent(c: Content): string[] {
   dupes('design', (c.designs ?? []).map((x) => x.id));
   for (const d of c.designs ?? []) {
     for (const st of d.stops) if (!stopIds.has(st)) problems.push(`designs: "${d.id}" uses unknown stop "${st}"`);
-    for (const p of d.inPractice) if (p.source > d.sources.length) problems.push(`designs: "${d.id}" cites source ${p.source}, but has ${d.sources.length}`);
+    const nodeIds = new Set(d.diagram.nodes.map((n) => n.id));
+    const edgeIds = new Set(d.diagram.edges.map((e) => e.id));
+    dupes(`design ${d.id} node`, d.diagram.nodes.map((n) => n.id));
+    dupes(`design ${d.id} wire`, d.diagram.edges.map((e) => e.id));
+    for (const n of d.diagram.nodes) if (n.stop && !stopIds.has(n.stop)) problems.push(`designs: "${d.id}" box "${n.id}" links unknown stop "${n.stop}"`);
+    for (const f of d.flows)
+      f.steps.forEach((st, i) => {
+        if (!st.edges.length && !st.nodes.length) problems.push(`designs: "${d.id}" flow "${f.id}" step ${i + 1} lights up nothing`);
+        for (const e of st.edges) if (!edgeIds.has(e)) problems.push(`designs: "${d.id}" flow "${f.id}" step ${i + 1} uses unknown wire "${e}"`);
+        for (const n of st.nodes) if (!nodeIds.has(n)) problems.push(`designs: "${d.id}" flow "${f.id}" step ${i + 1} uses unknown box "${n}"`);
+      });
+    const links = [...d.companies.flatMap((x) => x.links), ...d.numbers.realScale.map((x) => x.source)];
+    for (const l of links) if (!l.verified) problems.push(`designs: "${d.id}" links "${l.title}" without verified: true. Open it and check it first`);
   }
   dupes('certification', (c.certifications ?? []).map((x) => x.id));
   for (const cert of c.certifications ?? [])

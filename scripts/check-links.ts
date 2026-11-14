@@ -19,7 +19,11 @@ const c = loadContent();
 const targets = [
   ...c.resources.map((r) => ({ id: r.id, url: r.url })),
   ...c.certifications.map((x) => ({ id: `certificate ${x.id}`, url: x.url })),
-  ...c.designs.flatMap((d) => d.sources.map((s, i) => ({ id: `design ${d.id} source ${i + 1}`, url: s.url }))),
+  ...c.designs.flatMap((d) => [
+    ...d.companies.flatMap((co) => co.links.map((l) => ({ id: `design ${d.id}: ${co.name}`, url: l.url }))),
+    ...d.numbers.realScale.map((r) => ({ id: `design ${d.id}: ${r.name} figure`, url: r.source.url })),
+    ...d.others.map((o) => ({ id: `design ${d.id}: ${o.publisher}`, url: o.url })),
+  ]),
 ];
 const urls = [...new Map(targets.map((r) => [r.url, r])).values()];
 const TIMEOUT = 15_000;

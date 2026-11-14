@@ -1,235 +1,604 @@
 id: chat
 title: Design a chat app
-like: WhatsApp, Discord, Slack
+like:
+- WhatsApp
+- Telegram
+- Discord
+- Slack
 level: core
-summary: Real-time messages between people and groups, delivered once and in order, even to phones that
-  keep going offline. The hard parts are millions of open connections, delivery guarantees and storing
-  messages forever.
+summary: Every phone keeps one connection open to a gateway, so the server can push a message the moment it arrives.
+  A message service checks it, gives it an ID that sorts by time, stores it and sends it to whichever gateway holds
+  the recipient. If the recipient is offline, a push notification wakes their phone. The hard parts are never losing
+  a message, never showing it twice, and keeping order.
 stops:
 - api-styles
+- scaling-load-balancing
 - messaging
 - redis
 - partitioning-replication
-- distributed-systems
 - caching
 - reliability-patterns
-requirements:
-  functional:
-  - One-to-one and group chats
-  - Messages arrive in real time when the recipient is online, and as soon as they reconnect when not
-  - Sent, delivered and read receipts
-  - History that syncs across a person's devices
-  - Online status and 'typing…'
-  - Photos and files
-  nonFunctional:
-  - Delivery in well under a second when both people are online
-  - No message is ever lost, and none is shown twice
-  - Messages in a chat appear in the same order for everyone
-  - Tens of millions of connections open at once
-  - End-to-end encryption, so the server can't read messages
-estimates:
-- quantity: Messages
-  value: about 46,000 a second, 140,000 at peak
-  working: 'Assume 100 million daily users sending 40 messages each: 4 billion a day ÷ 86,400 seconds
-    ≈ 46,000 a second. Peaks are about three times the average.'
-- quantity: Storage
-  value: about 800 GB a day
-  working: About 200 bytes per text message with its metadata × 4 billion = 800 GB a day, roughly 290
-    TB a year, if you keep history forever. Media goes to object storage separately.
-- quantity: Open connections
-  value: about 30 million at peak
-  working: 'Assume 30% of daily users are connected at the busiest time: 30 million WebSocket connections.'
-- quantity: Gateway servers
-  value: 60 to 300
-  working: 'Plan for 100,000 to 500,000 connections per gateway server, well below what tuned servers
-    have shown, to leave room for failures: 30,000,000 ÷ 500,000 = 60 up to 30,000,000 ÷ 100,000 = 300.'
-api:
-- call: WebSocket wss://chat/…  (after login)
-  does: One long-lived connection per device carries everything in both directions.
-- call: → send {clientMsgId, chatId, body}
-  does: The client picks clientMsgId so retries can be recognised.
-- call: ← ack {clientMsgId, messageId}
-  does: 'The server stored it: the sender''s single tick.'
-- call: ← message {chatId, messageId, from, body}
-  does: A new message for this device.
-- call: '→ receipt {chatId, upToMessageId, type: delivered | read}'
-  does: Delivered and read ticks.
-- call: GET /chats/{id}/messages?before={messageId}&limit=50
-  does: Paging back through history over plain HTTPS.
-- call: POST /media → upload URL
-  does: A short-lived URL to upload a file straight to object storage.
-data:
-- name: messages
-  store: Wide-column store (Cassandra or ScyllaDB)
-  holds: PRIMARY KEY ((chat_id, bucket), message_id); author, body, created_at
-  why: All messages of a chat for a time bucket sit together and come back in order. Writes are fast appends.
-    The bucket stops busy chats from growing one endless partition.
-- name: chat members
-  store: Relational or wide-column
-  holds: chat_id → member user IDs; user_id → chat IDs
-  why: Checking who may post and who to deliver to.
-- name: sessions
-  store: Redis
-  holds: user_id → the gateway servers holding that user's devices
-  why: Routing a message to the right connections. Entries expire if a gateway dies.
-- name: read state
-  store: Wide-column or Redis
-  holds: (user_id, chat_id) → last delivered and last read message ID
-  why: Unread counts, receipts, and where each device resumes syncing.
-- name: media
-  store: Object storage behind a CDN
-  holds: Encrypted files
-  why: Cheap, durable, and served close to users.
-layers:
-- name: Clients
-  parts:
-  - name: Phone and desktop apps
-    does: Hold a WebSocket open
-- name: Edge
-  parts:
-  - name: Load balancer
-    does: Spreads new connections; keeps existing ones where they are
-- name: Services
-  parts:
-  - name: Gateway servers
-    does: Hold connections, nothing else
-  - name: Chat service
-    does: Checks membership, assigns IDs, stores and routes messages
-  - name: Presence service
-    does: Online and typing state
-  - name: Push service
-    does: APNs and FCM notifications for offline devices
-- name: Data
-  parts:
-  - name: Message store
-    does: Every message
-  - name: Session registry (Redis)
-    does: Who's connected where
-  - name: Pub/sub
-    does: Chat service to gateways
-  - name: Object storage
-    does: Media
+- cryptography
+diagram:
+  nodes:
+  - id: cdn
+    name: CDN
+    sub: Files near the reader
+    kind: external
+    icon: globe
+    x: 290
+    y: 70
+    stop: caching
+  - id: obj
+    name: Object storage
+    sub: Encrypted files
+    kind: store
+    icon: box
+    x: 530
+    y: 70
+    stop: cloud-basics
+  - id: media
+    name: Media service
+    sub: Takes uploads
+    kind: service
+    icon: upload
+    x: 750
+    y: 70
+  - id: phone-a
+    name: Sender's phone
+    sub: Sends the message
+    kind: edge
+    icon: phone
+    x: 110
+    y: 250
+    w: 170
+  - id: lb
+    name: Load balancer
+    sub: Spreads connections
+    kind: edge
+    icon: lb
+    x: 300
+    y: 340
+    stop: scaling-load-balancing
+  - id: gw
+    name: Chat gateways
+    sub: Hold the connections
+    kind: service
+    icon: gateway
+    x: 520
+    y: 340
+    stop: api-styles
+  - id: msg
+    name: Message service
+    sub: Checks, IDs, stores
+    kind: service
+    icon: message
+    x: 750
+    y: 340
+    stop: distributed-systems
+  - id: groups
+    name: Users and groups
+    sub: Who's in each chat
+    kind: store
+    icon: users
+    x: 985
+    y: 200
+    stop: sql
+  - id: store
+    name: Message store
+    sub: Wide-column, by chat
+    kind: store
+    icon: database
+    x: 985
+    y: 340
+    stop: partitioning-replication
+  - id: sess
+    name: Sessions
+    sub: User → gateway
+    kind: store
+    icon: heartbeat
+    x: 750
+    y: 510
+    stop: redis
+  - id: push
+    name: Push service
+    sub: Wakes offline phones
+    kind: service
+    icon: bell
+    x: 985
+    y: 510
+    stop: messaging
+  - id: apns
+    name: APNs / FCM
+    sub: Apple, Google
+    kind: external
+    icon: send
+    x: 1160
+    y: 510
+    w: 140
+  - id: phone-b
+    name: Recipient's phone
+    sub: Gets the message
+    kind: edge
+    icon: phone
+    x: 110
+    y: 470
+    w: 170
+  edges:
+  - id: a-lb
+    pts:
+    - - 195
+      - 250
+    - - 300
+      - 250
+    - - 300
+      - 305
+    label:
+      text: open connection
+      x: 248
+      y: 238
+      anchor: middle
+    two: true
+  - id: lb-gw
+    pts:
+    - - 390
+      - 340
+    - - 428
+      - 340
+    two: true
+  - id: gw-msg
+    pts:
+    - - 612
+      - 328
+    - - 658
+      - 328
+    label:
+      text: send
+      x: 635
+      y: 314
+      anchor: middle
+  - id: msg-gw
+    pts:
+    - - 658
+      - 352
+    - - 612
+      - 352
+    label:
+      text: deliver
+      x: 635
+      y: 372
+      anchor: middle
+  - id: msg-store
+    pts:
+    - - 842
+      - 340
+    - - 893
+      - 340
+    label:
+      text: write
+      x: 868
+      y: 328
+      anchor: middle
+  - id: msg-groups
+    pts:
+    - - 738
+      - 305
+    - - 738
+      - 200
+    - - 893
+      - 200
+    label:
+      text: members?
+      x: 812
+      y: 188
+      anchor: middle
+  - id: msg-sess
+    pts:
+    - - 750
+      - 375
+    - - 750
+      - 475
+    label:
+      text: where is B?
+      x: 758
+      y: 430
+      anchor: start
+  - id: gw-sess
+    pts:
+    - - 548
+      - 375
+    - - 548
+      - 510
+    - - 658
+      - 510
+    label:
+      text: register
+      x: 603
+      y: 498
+      anchor: middle
+  - id: gw-b
+    pts:
+    - - 490
+      - 375
+    - - 490
+      - 470
+    - - 195
+      - 470
+    label:
+      text: push down the open connection
+      x: 330
+      y: 458
+      anchor: middle
+    two: true
+  - id: msg-push
+    pts:
+    - - 805
+      - 375
+    - - 805
+      - 440
+    - - 985
+      - 440
+    - - 985
+      - 475
+    label:
+      text: B is offline
+      x: 895
+      y: 430
+      anchor: middle
+  - id: push-apns
+    pts:
+    - - 1075
+      - 510
+    - - 1090
+      - 510
+  - id: apns-b
+    pts:
+    - - 1160
+      - 545
+    - - 1160
+      - 605
+    - - 110
+      - 605
+    - - 110
+      - 505
+    label:
+      text: notification, no message text
+      x: 640
+      y: 593
+      anchor: middle
+  - id: a-media
+    pts:
+    - - 110
+      - 215
+    - - 110
+      - 148
+    - - 770
+      - 148
+    - - 770
+      - 105
+    label:
+      text: upload encrypted photo
+      x: 440
+      y: 136
+      anchor: middle
+  - id: media-obj
+    pts:
+    - - 660
+      - 70
+    - - 622
+      - 70
+    label:
+      text: save
+      x: 641
+      y: 56
+      anchor: middle
+  - id: cdn-obj
+    pts:
+    - - 380
+      - 70
+    - - 438
+      - 70
+    label:
+      text: on miss
+      x: 409
+      y: 56
+      anchor: middle
+  - id: b-cdn
+    pts:
+    - - 25
+      - 470
+    - - 12
+      - 470
+    - - 12
+      - 70
+    - - 198
+      - 70
+    label:
+      text: download photo
+      x: 20
+      y: 128
+      anchor: start
 flows:
-- name: Sending to someone who's online
+- id: send
+  name: Send a message
   steps:
-  - at: Asha's phone
-    does: Sends {clientMsgId, chatId, body} on its WebSocket
-  - at: Gateway
-    does: Passes it to the chat service
-  - at: Chat service
-    does: Checks Asha is in the chat, assigns a time-ordered message ID, and writes it to the message
-      store
-  - at: Asha's phone
-    does: 'Receives the ack: one tick'
-  - at: Session registry
-    does: Says Ravi's phone is on gateway 17
-  - at: Pub/sub
-    does: Carries the message to gateway 17
-  - at: Ravi's phone
-    does: 'Receives it and sends a delivered receipt, which travels back the same way: two ticks'
-- name: Coming back online
+  - text: Your phone sends the message, with an ID it made, over its open connection.
+    edges:
+    - a-lb
+    - lb-gw
+  - text: The gateway passes it to the message service.
+    edges:
+    - gw-msg
+  - text: The service checks you are in this chat.
+    edges:
+    - msg-groups
+  - text: It gives the message a server ID that sorts by time and writes it to the store. If the phone retried,
+      the same ID means it is stored once.
+    edges:
+    - msg-store
+  - text: 'It replies to your phone: one tick.'
+    edges:
+    - gw-msg
+    - lb-gw
+    - a-lb
+  - text: It looks up which gateway holds the recipient.
+    edges:
+    - msg-sess
+  - text: It sends the message to that gateway.
+    edges:
+    - msg-gw
+  - text: The gateway pushes it down the recipient's open connection.
+    edges:
+    - gw-b
+  - text: The recipient's phone confirms. You see two ticks.
+    edges:
+    - gw-b
+    - msg-gw
+    - gw-msg
+    - a-lb
+- id: offline
+  name: Recipient is offline
   steps:
-  - at: Ravi's phone
-    does: Was offline; the push service sent a notification instead
-  - at: Ravi's phone
-    does: 'Reconnects and says: my last message in each chat was X'
-  - at: Chat service
-    does: Reads everything after X from the message store
-  - at: Ravi's phone
-    does: Receives the missed messages in order and acknowledges them
-deepDives:
-- title: Never lost, never twice
-  body:
-  - 'Networks drop packets and phones lose signal mid-send, so a client retries anything not acknowledged.
-    That makes delivery at-least-once, and duplicates possible. The fix is idempotency: the client picks
-    clientMsgId before the first try, and the server remembers recent IDs per chat. A retry returns the
-    original ack instead of storing a second copy.'
-  - Delivery to devices works the same way in reverse. Each device remembers the last message ID it has,
-    and on reconnect asks for everything after it. A message is only gone from the 'to deliver' set once
-    the device acknowledges it.
-- title: Ordering
-  body:
-  - 'Clocks on phones can''t be trusted, and even servers'' clocks drift. Order comes from the server:
-    message IDs that sort by time (a timestamp, a machine number and a sequence, as in Twitter''s Snowflake).
-    For stricter order within a chat, route each chat to one owner process that assigns a per-chat sequence
-    number; everything for that chat is then ordered by one counter.'
-- title: Groups and fan-out
-  body:
-  - 'A message to a 500-member group is one write and 500 deliveries. Sending 500 copies through pub/sub
-    is wasteful when many members sit on the same gateway, so publish once per gateway and let each gateway
-    deliver to its local members. Very large groups and channels are read more like a feed: members fetch
-    recent messages when they open the chat, rather than each getting a push.'
-- title: Presence is surprisingly expensive
-  body:
-  - Telling every contact each time someone goes online or offline creates far more traffic than the messages
-    themselves. Devices send a heartbeat every so often and presence is stored with a short expiry; changes
-    are only pushed to people who have that chat open, and everyone else sees 'last seen' when they look.
+  - text: You send as usual. The message is checked and stored.
+    edges:
+    - a-lb
+    - lb-gw
+    - gw-msg
+    - msg-store
+  - text: The session lookup finds no open connection for the recipient.
+    edges:
+    - msg-sess
+  - text: The message service asks the push service to wake their phone.
+    edges:
+    - msg-push
+  - text: 'A notification goes out through Apple or Google. Apple and Google can''t read it: it carries no message
+      text, or only encrypted text.'
+    edges:
+    - push-apns
+    - apns-b
+  - text: Their app opens, connects to a gateway and registers.
+    edges:
+    - gw-b
+    - gw-sess
+  - text: It asks for everything after the last message ID it has. The service reads those from the store.
+    edges:
+    - gw-msg
+    - msg-store
+    - msg-gw
+    - gw-b
+  - text: Once their phone confirms, WhatsApp deletes the message from its servers. Discord and Slack keep it.
+    edges:
+    - msg-store
+- id: photo
+  name: Send a photo
+  steps:
+  - text: Your phone encrypts the photo with a fresh key.
+    nodes:
+    - phone-a
+  - text: It uploads the encrypted file to the media service.
+    edges:
+    - a-media
+  - text: The media service saves it to object storage and returns a link.
+    edges:
+    - media-obj
+  - text: Your phone sends an ordinary message holding the link and the key.
+    edges:
+    - a-lb
+    - lb-gw
+    - gw-msg
+    - msg-store
+  - text: The recipient gets that message the usual way.
+    edges:
+    - msg-gw
+    - gw-b
+  - text: Their phone downloads the file from the CDN, which fetches it from storage the first time.
+    edges:
+    - b-cdn
+    - cdn-obj
+  - text: It decrypts the photo with the key from the message. The servers never saw it.
+    nodes:
+    - phone-b
+- id: group
+  name: Message a group
+  steps:
+  - text: You send one message to the group.
+    edges:
+    - a-lb
+    - lb-gw
+    - gw-msg
+  - text: The service fetches the member list, usually from a cache.
+    edges:
+    - msg-groups
+  - text: The message is stored once, not once per member.
+    edges:
+    - msg-store
+  - text: For each member it looks up their gateway, and sends one copy per gateway rather than one per member.
+    edges:
+    - msg-sess
+    - msg-gw
+  - text: Each gateway delivers to its members who are online.
+    edges:
+    - gw-b
+  - text: Members who are offline get a push notification.
+    edges:
+    - msg-push
+    - push-apns
+    - apns-b
+  - text: With end-to-end encryption the server only ever passes on ciphertext. The keys live on the phones.
+    nodes:
+    - phone-a
+    - phone-b
+requirements:
+  features:
+  - One-to-one and group chats
+  - Sent, delivered and read ticks
+  - Photos and files
+  - Online and last seen
+  - Messages wait for offline phones
+  qualities:
+  - Delivered in well under a second
+  - Never lost, never shown twice
+  - In order within a chat
+  - Light on battery and mobile data
+  - Keeps working when a server dies
+numbers:
+  assumption: 'Our assumption for a mid-size app: 100 million people a day, 40 messages each. These are not WhatsApp''s
+    figures.'
+  rows:
+  - what: Messages
+    size: 46,000 a second
+    how: 4 billion a day ÷ 86,400 seconds. Plan for about three times that at peak.
+  - what: Text stored
+    size: 800 GB a day
+    how: About 200 bytes per message with its details. Only if you keep history, which WhatsApp does not.
+  - what: Open connections
+    size: 30 million
+    how: Say 30% of daily users are online at the busiest moment.
+  - what: Gateway servers
+    size: 60 to 300
+    how: 100,000 to 500,000 connections each, leaving room for a server to fail.
+  realScale:
+  - name: WhatsApp
+    text: was delivering roughly 100 billion messages a day in 2020, about 25 times our example, and deletes each
+      one from its servers once it is delivered.
+    source:
+      title: WhatsApp is now delivering roughly 100 billion messages a day
+      publisher: TechCrunch
+      year: '2020'
+      url: https://techcrunch.com/2020/10/29/whatsapp-is-now-delivering-roughly-100-billion-messages-a-day/
+      verified: true
+  - name: Discord
+    text: keeps every message forever. By 2023 that was trillions of messages on 72 database nodes.
+    source:
+      title: How Discord stores trillions of messages
+      publisher: Discord
+      year: '2023'
+      url: https://discord.com/blog/how-discord-stores-trillions-of-messages
+      verified: true
+decisions:
+- title: Open connection, not polling
+  text: A WebSocket or long-lived TCP connection lets the server push at once. Asking "anything new?" every few
+    seconds is slow and drains the battery.
+- title: Server-made IDs
+  text: Phone clocks are wrong. IDs that sort by time (timestamp, machine, sequence, as in Twitter's Snowflake)
+    give one order everyone agrees on.
+- title: Store by chat
+  text: The common read is "latest messages in this chat", so a wide-column store partitioned by chat and time window
+    beats one big SQL table.
+- title: Keep or delete
+  text: Deleting after delivery (WhatsApp) or keeping forever (Discord, Slack) is a product choice. It changes storage
+    by orders of magnitude.
 - title: End-to-end encryption
-  body:
-  - With end-to-end encryption, the server stores and forwards ciphertext it can't read. Messaging apps
-    such as WhatsApp and Signal use the Signal Protocol for this. Server features that need to read messages,
-    like server-side search, then have to move to the device.
-tradeoffs:
-- decision: Transport
-  chose: WebSockets
-  over: Polling
-  because: Real-time delivery in both directions over one connection, at the cost of holding millions
-    of connections open.
-- decision: Message store
-  chose: A wide-column store partitioned by chat and time bucket
-  over: One relational database
-  because: Writes scale out and a chat's recent history is one sequential read; the cost is fewer query
-    options and careful partition design.
-- decision: Delivery guarantee
-  chose: At-least-once with client-chosen IDs
-  over: Trying for exactly-once in the network
-  because: Exactly-once delivery isn't achievable across unreliable networks; deduplication gives the
-    same result.
+  text: The server can't read messages, so search and backups move to the phone.
+- title: Big groups pull
+  text: Push each message to small groups. In huge channels, members fetch recent messages when they open the chat.
 breaks:
-- what: A gateway server dies and 300,000 phones reconnect at once
-  fix: Clients reconnect after a random delay with exponential backoff, so the load spreads over a minute
-    instead of one second.
-- what: One enormous channel gets read by everyone at the same moment
-  fix: Coalesce identical reads so the database is asked once, route by channel to one service instance,
-    and cache recent messages.
-- what: Push-notification providers throttle you at peak
-  fix: Collapse several messages into one notification per chat, and queue the rest.
-inPractice:
-- text: Discord stores every message forever. It started on MongoDB; by late 2015, at 100 million stored
-    messages, the data and index no longer fitted in RAM and latency became unpredictable, so it moved
-    messages to Cassandra.
-  source: 2
-- text: Its message table is partitioned by (channel_id, bucket), where the bucket is a fixed time window,
-    and clustered by message_id descending; every ID is a time-sortable Snowflake.
-  source: 1
-- text: By early 2022 the cluster had grown from 12 Cassandra nodes to 177 holding trillions of messages,
-    with hot partitions in busy channels and garbage-collection pauses causing unpredictable latency.
-  source: 1
-- text: Discord put Rust 'data services' between its API and the database. They coalesce concurrent requests
-    for the same row into one query, and requests are routed by consistent hashing on channel ID so the
-    same channel always hits the same instance.
-  source: 1
-- text: It then migrated to ScyllaDB at up to 3.2 million messages a second, ending on 72 nodes instead
-    of 177. Historical-message reads went from a p99 of 40–125 ms to 15 ms, and inserts from 5–70 ms to
-    5 ms.
-  source: 1
-- text: In 2012 WhatsApp reported holding over 2 million TCP connections on a single FreeBSD server running
-    Erlang, with CPU and memory to spare.
-  source: 3
-sources:
-- title: How Discord Stores Trillions of Messages
-  publisher: Discord
-  year: '2023'
-  url: https://discord.com/blog/how-discord-stores-trillions-of-messages
-- title: How Discord Stores Billions of Messages
-  publisher: Discord
-  year: '2017'
-  url: https://discord.com/blog/how-discord-stores-billions-of-messages
-- title: 1 million is so 2011
-  publisher: WhatsApp
-  year: '2012'
-  url: https://blog.whatsapp.com/1-million-is-so-2011
-- title: Design a Messaging App Like WhatsApp
+- what: A gateway restarts.
+  fix: Hundreds of thousands of phones reconnect at once. Phones wait a random, growing delay before retrying.
+- what: One chat gets huge.
+  fix: Its partition is overloaded. Split by time window and merge identical reads, as Discord does.
+- what: New Year's Eve.
+  fix: Push notifications spike. Collapse several messages into one notification and queue the rest.
+companies:
+- name: WhatsApp
+  text: In 2012 a single Erlang server held over 2 million open connections. Messages are end-to-end encrypted and
+    leave the server once delivered. Each linked device has its own keys, so a sender's phone encrypts a copy for
+    every device.
+  links:
+  - title: 1 million is so 2011
+    publisher: WhatsApp blog
+    year: '2012'
+    url: https://blog.whatsapp.com/1-million-is-so-2011
+    verified: true
+  - title: How WhatsApp enables multi-device capability
+    publisher: Meta Engineering
+    year: '2021'
+    url: https://engineering.fb.com/2021/07/14/security/whatsapp-multi-device/
+    verified: true
+  - title: 'Privacy policy: messages deleted once delivered'
+    publisher: WhatsApp
+    year: '2026'
+    url: https://www.whatsapp.com/legal/privacy-policy
+    verified: true
+- name: Discord
+  text: Keeps every message. Moved from MongoDB to Cassandra, then to ScyllaDB. Its real-time chat runs on Elixir,
+    on the Erlang VM, with a library it built (Manifold) to batch messages between servers.
+  links:
+  - title: How Discord stores billions of messages
+    publisher: Discord
+    year: '2017'
+    url: https://discord.com/blog/how-discord-stores-billions-of-messages
+    verified: true
+  - title: How Discord stores trillions of messages
+    publisher: Discord
+    year: '2023'
+    url: https://discord.com/blog/how-discord-stores-trillions-of-messages
+    verified: true
+  - title: How Discord scaled Elixir to 5,000,000 concurrent users
+    publisher: Discord
+    year: '2017'
+    url: https://discord.com/blog/how-discord-scaled-elixir-to-5-000-000-concurrent-users
+    verified: true
+- name: Slack
+  text: Channel servers keep recent channel state in memory and are found by consistent hashing. Gateway servers
+    in each region hold the WebSockets.
+  links:
+  - title: Real-time messaging
+    publisher: Slack Engineering
+    year: '2023'
+    url: https://slack.engineering/real-time-messaging/
+    verified: true
+- name: Messenger
+  text: Moved phones from asking for updates to being pushed an ordered stream of changes (a service called Iris),
+    which cut non-media data use by 40%.
+  links:
+  - title: Building mobile-first infrastructure for Messenger
+    publisher: Facebook Engineering
+    year: '2014'
+    url: https://engineering.fb.com/2014/10/09/production-engineering/building-mobile-first-infrastructure-for-messenger/
+    verified: true
+- name: Telegram
+  text: Publishes its protocol, MTProto, rather than its server design. Ordinary chats are stored on its servers
+    so every device syncs. Only Secret Chats are end-to-end encrypted.
+  links:
+  - title: MTProto protocol
+    publisher: Telegram
+    year: '2026'
+    url: https://core.telegram.org/mtproto
+    verified: true
+  - title: 'FAQ: secret chats'
+    publisher: Telegram
+    year: '2026'
+    url: https://telegram.org/faq#secret-chats
+    verified: true
+others:
+- title: Design WhatsApp
   publisher: Hello Interview
-  year: '2026'
   url: https://www.hellointerview.com/learn/system-design/problem-breakdowns/whatsapp
+- title: The journey of a Slack message
+  publisher: ByteByteGo
+  url: https://bytebytego.com/guides/what-is-the-journey-of-a-slack-message/
+- title: The System Design Primer
+  publisher: Donne Martin
+  url: https://github.com/donnemartin/system-design-primer
+  licence: CC BY 4.0

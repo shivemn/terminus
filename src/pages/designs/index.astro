@@ -14,12 +14,13 @@ const groups = LEVELS.map((l) => ({ ...l, items: c.designs.filter((d) => d.level
 >
   <h1><span class="board">Designs</span></h1>
   <p class="lede">
-    System designs for products you already use, worked through the way you'd do it in an interview: what it must do, the
-    numbers, the API and data, how a request flows, the hard parts, and what breaks first.
+    System designs for products you already use. Each one starts with a diagram you can follow request by request, then
+    the numbers, the key decisions and what breaks first, and links to what the real companies published about their own
+    systems.
   </p>
   <p class="quiet note">
-    These are our designs, written for learning. They're simplified, and the real systems differ. Where a page says what a
-    company actually built, that comes from the company's own engineering write-up, linked at the bottom of the page.
+    These are our designs, written for learning. They're simplified, and the real systems differ. What a company actually
+    built comes only from that company's own posts, talks or docs, linked on each page.
   </p>
 
   {
@@ -31,9 +32,9 @@ const groups = LEVELS.map((l) => ({ ...l, items: c.designs.filter((d) => d.level
           {g.items.map((d) => (
             <li>
               <a class="design-name" href={`/designs/${d.id}`}>{d.title}</a>
-              <p class="like">Like {d.like}</p>
-              <p class="quiet">{d.summary}</p>
-              <p class="faint meta">{d.deepDives.length} deep dives, {d.sources.length} sources</p>
+              <p class="like">Like {d.like.join(", ")}</p>
+              <p class="quiet">{d.summary.split(/(?<=\.)\s/)[0]}</p>
+              <p class="faint meta">{d.flows.length} flows to follow, {d.companies.length} {d.companies.length === 1 ? "company" : "companies"} compared</p>
             </li>
           ))}
         </ul>

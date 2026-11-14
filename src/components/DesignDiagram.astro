@@ -1,0 +1,288 @@
+---
+/**
+ * A design's architecture diagram: boxes with icons, labelled wires, and
+ * flows you can follow. The picture and every flow's steps are plain HTML
+ * and SVG, so they work without JavaScript; the script turns the flows into
+ * a switcher and lights up each step's path.
+ */
+import type { Design } from '../lib/schema';
+import { ICONS } from '../lib/icons';
+
+interface Props {
+  design: Design;
+  /** Where each stop's page is: /concepts/... or /tools/... */
+  hrefs: Record<string, string>;
+}
+const { design: d, hrefs } = Astro.props;
+const { width, height, nodes, edges } = d.diagram;
+const H = 66;
+const KIND_COLOUR = { edge: 'var(--infra)', service: 'var(--systems)', store: 'var(--data)', external: 'var(--web)' } as const;
+
+function rounded(pts: Array<[number, number]>, r = 12): string {
+  let s = `M${pts[0]![0]} ${pts[0]![1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i - 1]!;
+    const [x1, y1] = pts[i]!;
+    const [x2, y2] = pts[i + 1]!;
+    const l1 = Math.hypot(x1 - x0, y1 - y0);
+    const l2 = Math.hypot(x2 - x1, y2 - y1);
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    s += ` L${x1 - ((x1 - x0) / l1) * rr} ${y1 - ((y1 - y0) / l1) * rr} Q${x1} ${y1} ${x1 + ((x2 - x1) / l2) * rr} ${y1 + ((y2 - y1) / l2) * rr}`;
+  }
+  const last = pts[pts.length - 1]!;
+  return `${s} L${last[0]} ${last[1]}`;
+}
+
+/** The boxes a wire joins: whichever box is nearest each end. */
+function nearest([x, y]: [number, number]): string {
+  let best = nodes[0]!.id;
+  let bd = Infinity;
+  for (const n of nodes) {
+    const w = n.w ?? 180;
+    const dx = Math.max(Math.abs(x - n.x) - w / 2, 0);
+    const dy = Math.max(Math.abs(y - n.y) - H / 2, 0);
+    const dd = Math.hypot(dx, dy);
+    if (dd < bd) (bd = dd), (best = n.id);
+  }
+  return best;
+}
+const ends = Object.fromEntries(edges.map((e) => [e.id, [nearest(e.pts[0]!), nearest(e.pts[e.pts.length - 1]!)]]));
+const data = { ends, flows: d.flows.map((f) => ({ id: f.id, steps: f.steps.map((s) => ({ edges: s.edges, nodes: s.nodes })) })) };
+---
+
+<div class="dia" data-dia>
+  <div class="flowbar" role="group" aria-label="Choose a flow" hidden>
+    <span>Follow a flow:</span>
+    {d.flows.map((f, i) => (
+      <button type="button" data-flow={f.id} aria-pressed={i === 0 ? 'true' : 'false'}>
+        {f.name}
+      </button>
+    ))}
+  </div>
+  <div class="dia-grid">
+    <div>
+      <div class="canvas">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Architecture of ${d.title.toLowerCase()}`}>
+          <defs>
+            <marker id={`ah-${d.id}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0L10 5L0 10z" class="arrow-off" />
+            </marker>
+            <marker id={`ahon-${d.id}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0L10 5L0 10z" class="arrow-on" />
+            </marker>
+          </defs>
+          <g>
+            {edges.map((e) => (
+              <path
+                d={rounded(e.pts)}
+                class="wire on"
+                data-edge={e.id}
+                data-two={e.two ? '1' : undefined}
+                marker-end={`url(#ahon-${d.id})`}
+                marker-start={e.two ? `url(#ahon-${d.id})` : undefined}
+              />
+            ))}
+          </g>
+          <g>
+            {edges.filter((e) => e.label).map((e) => (
+              <text x={e.label!.x} y={e.label!.y} text-anchor={e.label!.anchor} class="wl" data-label={e.id}>
+                {e.label!.text}
+              </text>
+            ))}
+          </g>
+          <g>
+            {nodes.map((n) => {
+              const w = n.w ?? 180;
+              const x = n.x - w / 2;
+              const y = n.y - H / 2;
+              const inner = (
+                <>
+                  <rect x={x} y={y} width={w} height={H} rx="4" class="box" />
+                  <rect x={x + 8} y={y + 13} width="40" height="40" rx="3" fill={KIND_COLOUR[n.kind]} />
+                  <g class="ico" transform={`translate(${x + 16} ${y + 21})`} set:html={ICONS[n.icon]} />
+                  <text x={x + 56} y={y + 30} class="name" textLength={n.name.length > (w - 64) / 8.4 ? w - 64 : undefined} lengthAdjust="spacingAndGlyphs">
+                    {n.name}
+                  </text>
+                  <text x={x + 56} y={y + 49} class="sub" textLength={n.sub.length > (w - 64) / 5.9 ? w - 64 : undefined} lengthAdjust="spacingAndGlyphs">
+                    {n.sub}
+                  </text>
+                </>
+              );
+              return n.stop ? (
+                <a href={hrefs[n.stop]} class="node link" data-node={n.id} aria-label={`${n.name}: learn it on Terminus`}>
+                  <title>{n.name}. Learn it on Terminus.</title>
+                  {inner}
+                </a>
+              ) : (
+                <g class="node" data-node={n.id}>{inner}</g>
+              );
+            })}
+          </g>
+          <g class="badges" />
+        </svg>
+      </div>
+      <p class="scroll-hint">Scroll sideways to see the whole diagram.</p>
+      <p class="legend">
+        <span><i style="background:var(--infra)"></i>Phones and the edge</span>
+        <span><i style="background:var(--systems)"></i>Services we run</span>
+        <span><i style="background:var(--data)"></i>Where data lives</span>
+        <span><i style="background:var(--web)"></i>Outside services</span>
+        <span>Boxes with a stop link to it.</span>
+      </p>
+    </div>
+    <div class="steps">
+      {d.flows.map((f, i) => (
+        <section data-steps={f.id} hidden={i > 0}>
+          <h3>{f.name}</h3>
+          <ol>
+            {f.steps.map((s, j) => (
+              <li tabindex="0" data-step={j}>
+                {s.text}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
+      <p class="tip">Point at a step to see where it happens.</p>
+    </div>
+  </div>
+  <script type="application/json" set:html={JSON.stringify(data)} />
+</div>
+
+<script>
+  type Step = { edges: string[]; nodes: string[] };
+  type Data = { ends: Record<string, [string, string]>; flows: Array<{ id: string; steps: Step[] }> };
+  const NS = 'http://www.w3.org/2000/svg';
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-dia]')) {
+    const data: Data = JSON.parse(root.querySelector('script[type="application/json"]')!.textContent!);
+    const svg = root.querySelector('svg')!;
+    const marker = (on: boolean) => `url(#${on ? 'ahon' : 'ah'}-${svg.querySelector('marker')!.id.replace(/^ah-/, '')})`;
+    const wires = new Map([...root.querySelectorAll<SVGPathElement>('[data-edge]')].map((p) => [p.dataset.edge!, p]));
+    const labels = new Map([...root.querySelectorAll<SVGTextElement>('[data-label]')].map((t) => [t.dataset.label!, t]));
+    const boxes = new Map([...root.querySelectorAll<SVGElement>('[data-node]')].map((n) => [n.dataset.node!, n]));
+    const badges = root.querySelector<SVGGElement>('.badges')!;
+    const bar = root.querySelector<HTMLElement>('.flowbar')!;
+    bar.hidden = false;
+
+    function paint(flowId: string, only?: number) {
+      const flow = data.flows.find((f) => f.id === flowId)!;
+      const inFlow = new Set<string>();
+      const flowBoxes = new Set<string>();
+      for (const s of flow.steps) {
+        s.edges.forEach((e) => (inFlow.add(e), data.ends[e]!.forEach((n) => flowBoxes.add(n))));
+        s.nodes.forEach((n) => flowBoxes.add(n));
+      }
+      const hot = new Set(only === undefined ? [] : flow.steps[only]!.edges);
+      const hotBoxes = new Set(only === undefined ? [] : flow.steps[only]!.nodes);
+      hot.forEach((e) => data.ends[e]!.forEach((n) => hotBoxes.add(n)));
+      for (const [id, p] of wires) {
+        const on = inFlow.has(id);
+        const h = hot.has(id);
+        p.setAttribute('class', 'wire' + (h ? ' hot' : on ? (only === undefined ? ' on' : '') : ' off'));
+        const m = marker(h || (on && only === undefined));
+        p.setAttribute('marker-end', m);
+        if (p.dataset.two) p.setAttribute('marker-start', m);
+        labels.get(id)?.classList.toggle('off', !on);
+      }
+      for (const [id, b] of boxes) b.classList.toggle('dim', only === undefined ? !flowBoxes.has(id) : !hotBoxes.has(id));
+      badges.replaceChildren();
+      const used = new Map<string, number>();
+      flow.steps.forEach((s, i) => {
+        if (only !== undefined && only !== i) return;
+        let x: number, y: number;
+        if (s.edges.length) {
+          const p = wires.get(s.edges[0]!)!;
+          const pt = p.getPointAtLength(p.getTotalLength() / 2);
+          (x = pt.x), (y = pt.y);
+        } else {
+          const r = boxes.get(s.nodes[0]!)!.querySelector('rect')!;
+          (x = +r.getAttribute('x')! + +r.getAttribute('width')! - 4), (y = +r.getAttribute('y')!);
+        }
+        const key = `${Math.round(x / 20)}:${Math.round(y / 20)}`;
+        const k = used.get(key) ?? 0;
+        used.set(key, k + 1);
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'badge');
+        g.setAttribute('transform', `translate(${x + k * 24} ${y})`);
+        const c = document.createElementNS(NS, 'circle');
+        c.setAttribute('r', '12');
+        const t = document.createElementNS(NS, 'text');
+        t.setAttribute('y', '1');
+        t.textContent = String(i + 1);
+        g.append(c, t);
+        badges.append(g);
+      });
+    }
+
+    function show(flowId: string) {
+      for (const s of root.querySelectorAll<HTMLElement>('[data-steps]')) s.hidden = s.dataset.steps !== flowId;
+      for (const b of bar.querySelectorAll<HTMLButtonElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.flow === flowId));
+      paint(flowId);
+    }
+
+    for (const b of bar.querySelectorAll<HTMLButtonElement>('button')) b.addEventListener('click', () => show(b.dataset.flow!));
+    for (const sec of root.querySelectorAll<HTMLElement>('[data-steps]')) {
+      for (const li of sec.querySelectorAll<HTMLElement>('li')) {
+        const on = () => {
+          sec.querySelectorAll('li').forEach((x) => x.classList.remove('active'));
+          li.classList.add('active');
+          paint(sec.dataset.steps!, +li.dataset.step!);
+        };
+        const off = () => (li.classList.remove('active'), paint(sec.dataset.steps!));
+        li.addEventListener('mouseenter', on);
+        li.addEventListener('focus', on);
+        li.addEventListener('click', on);
+        li.addEventListener('mouseleave', off);
+        li.addEventListener('blur', off);
+      }
+    }
+    show(data.flows[0]!.id);
+  }
+</script>
+
+<style>
+  .flowbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 14px; }
+  .flowbar[hidden] { display: none; }
+  .flowbar span { font-weight: 600; margin-right: 4px; }
+  .flowbar button { font: 600 0.98rem var(--text); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 4px 12px; cursor: pointer; }
+  .flowbar button[aria-pressed='true'] { background: var(--yellow); color: var(--on-yellow); border-color: #000; }
+  .dia-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+  @media (max-width: 1150px) { .dia-grid { grid-template-columns: minmax(0, 1fr); } }
+  .canvas { overflow-x: auto; border: 2px solid var(--rule); background: var(--paper); }
+  .canvas svg { display: block; width: 100%; min-width: 880px; height: auto; }
+  .scroll-hint { display: none; font-size: 0.9rem; color: var(--ink-3); margin: 6px 0 0; }
+  @media (max-width: 900px) { .scroll-hint { display: block; } }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--ink-2); margin: 8px 0 0; }
+  .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
+
+  svg :global(.box) { fill: var(--paper); stroke: var(--ink); stroke-width: 2; }
+  svg :global(.ico) { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  svg :global(.name) { font: 600 19px var(--sign); fill: var(--ink); }
+  svg :global(.sub) { font: 400 12px var(--text); fill: var(--ink-2); }
+  svg :global(.node) { transition: opacity 0.2s; }
+  svg :global(.node.dim) { opacity: 0.28; }
+  svg :global(.node.link) { cursor: pointer; }
+  svg :global(.node.link:hover .box) { stroke-width: 3; }
+  svg :global(.wire) { fill: none; stroke: var(--rule); stroke-width: 2; transition: stroke 0.2s, opacity 0.2s; }
+  svg :global(.wire.on) { stroke: var(--ink); stroke-width: 2.6; }
+  svg :global(.wire.hot) { stroke: var(--ink); stroke-width: 3.4; stroke-dasharray: 8 6; animation: flow 0.8s linear infinite; }
+  svg :global(.wire.off) { opacity: 0.35; }
+  @keyframes flow { to { stroke-dashoffset: -14; } }
+  @media (prefers-reduced-motion: reduce) { svg :global(.wire.hot) { animation: none; stroke-dasharray: none; } }
+  svg :global(.wl) { font: 600 12.5px var(--text); fill: var(--ink-2); paint-order: stroke; stroke: var(--paper); stroke-width: 5px; stroke-linejoin: round; }
+  svg :global(.wl.off) { opacity: 0.35; }
+  svg :global(.badge circle) { fill: var(--yellow); stroke: #000; stroke-width: 2; }
+  svg :global(.badge text) { font: 600 15px var(--sign); fill: #000; text-anchor: middle; dominant-baseline: central; }
+  svg :global(.arrow-off) { fill: var(--rule); }
+  svg :global(.arrow-on) { fill: var(--ink); }
+
+  .steps h3 { font: 600 1.45rem/1.1 var(--sign); margin: 0 0 6px; }
+  .steps ol { list-style: none; margin: 0; padding: 0; border-top: 3px solid var(--ink); counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--rule); cursor: pointer; font-size: 0.98rem; line-height: 1.45; }
+  .steps li::before { content: counter(s); font: 600 1.05rem/1 var(--sign); background: var(--yellow); color: #000; border: 2px solid #000; border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; padding-top: 2px; }
+  .steps li:hover, .steps li:global(.active) { background: var(--platform); }
+  .steps li:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+  .steps .tip { font-size: 0.9rem; color: var(--ink-3); margin: 8px 0 0; }
+  .steps section + section { margin-top: 0; }
+</style>

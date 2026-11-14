@@ -3,6 +3,7 @@
  * otherwise `npm run validate` (and therefore the build) fails.
  */
 import { z } from 'zod';
+import { ICON_NAMES } from './icons';
 
 const id = z
   .string()
@@ -324,34 +325,86 @@ export const startupsSchema = z.object({
 export type Startups = z.infer<typeof startupsSchema>;
 
 /**
- * A worked system design: written by us, with every claim about a real
- * company tied to that company's own write-up in `sources`.
+ * A worked system design: a diagram you can follow request by request,
+ * short notes, and what the real companies published about their own
+ * systems. Every company link must have been opened and checked.
  */
-const step = z.object({ at: z.string().min(1), does: z.string().min(1) });
+const point = z.tuple([z.number(), z.number()]);
+const link = z.object({
+  title: z.string().min(1),
+  publisher: z.string().min(1),
+  year: z.string().min(1),
+  url: z.url(),
+  /** True once someone has opened it and checked it says what we say. */
+  verified: z.boolean().default(false),
+});
+export const designNodeKinds = ['edge', 'service', 'store', 'external'] as const;
 export const designSchema = z.object({
   id,
   title: z.string().min(1),
-  /** Real products this is like, e.g. "WhatsApp, Discord". */
-  like: z.string().min(1),
+  /** Real products this is like, e.g. ["WhatsApp", "Discord"]. */
+  like: z.array(z.string().min(1)).min(1),
   level: z.enum(['starter', 'core', 'advanced']),
+  /** Three to five sentences: how it works and what is hard. */
   summary: z.string().min(1),
   /** Stops this design uses, linked from the page and back from each stop. */
   stops: z.array(id).min(1),
-  requirements: z.object({ functional: z.array(z.string()).min(2), nonFunctional: z.array(z.string()).min(2) }),
-  /** Back-of-the-envelope numbers, with the working shown. Assumptions say so. */
-  estimates: z.array(z.object({ quantity: z.string(), value: z.string(), working: z.string() })).min(2),
-  api: z.array(z.object({ call: z.string(), does: z.string() })).min(1),
-  data: z.array(z.object({ name: z.string(), store: z.string(), holds: z.string(), why: z.string() })).min(1),
-  /** Components in layers, left to right: clients, edge, services, data. */
-  layers: z.array(z.object({ name: z.string(), parts: z.array(z.object({ name: z.string(), does: z.string() })).min(1) })).min(2),
-  /** Requests followed through the components, drawn as lines. */
-  flows: z.array(z.object({ name: z.string(), steps: z.array(step).min(2) })).min(1),
-  deepDives: z.array(z.object({ title: z.string(), body: z.array(z.string()).min(1) })).min(2),
-  tradeoffs: z.array(z.object({ decision: z.string(), chose: z.string(), over: z.string(), because: z.string() })).min(2),
-  breaks: z.array(z.object({ what: z.string(), fix: z.string() })).min(1),
-  /** What the real companies did. Each point names its source by number (1-based). */
-  inPractice: z.array(z.object({ text: z.string(), source: z.number().int().positive() })).default([]),
-  sources: z.array(z.object({ title: z.string(), publisher: z.string(), year: z.string(), url: z.url() })).min(1),
+  diagram: z.object({
+    width: z.number().default(1240),
+    height: z.number().default(640),
+    nodes: z
+      .array(
+        z.object({
+          id,
+          name: z.string().min(1),
+          sub: z.string().min(1),
+          kind: z.enum(designNodeKinds),
+          icon: z.enum(ICON_NAMES),
+          x: z.number(),
+          y: z.number(),
+          w: z.number().optional(),
+          /** The stop that teaches this piece. */
+          stop: id.optional(),
+        }),
+      )
+      .min(3),
+    edges: z
+      .array(
+        z.object({
+          id,
+          /** Corner points of the wire, start to end. */
+          pts: z.array(point).min(2),
+          label: z.object({ text: z.string().min(1), x: z.number(), y: z.number(), anchor: z.enum(['start', 'middle', 'end']).default('middle') }).optional(),
+          /** Both directions, like an open connection. */
+          two: z.boolean().default(false),
+        }),
+      )
+      .min(2),
+  }),
+  /** Requests followed through the diagram. Each step lights up its wires and boxes. */
+  flows: z
+    .array(
+      z.object({
+        id,
+        name: z.string().min(1),
+        steps: z.array(z.object({ text: z.string().min(1), edges: z.array(id).default([]), nodes: z.array(id).default([]) })).min(2),
+      }),
+    )
+    .min(1),
+  requirements: z.object({ features: z.array(z.string()).min(2), qualities: z.array(z.string()).min(2) }),
+  numbers: z.object({
+    /** Says plainly that these are our assumptions, and for what size of app. */
+    assumption: z.string().min(1),
+    rows: z.array(z.object({ what: z.string(), size: z.string(), how: z.string() })).min(2),
+    /** Real figures, each from its own source. */
+    realScale: z.array(z.object({ name: z.string(), text: z.string(), source: link })).default([]),
+  }),
+  decisions: z.array(z.object({ title: z.string().min(1), text: z.string().min(1) })).min(2),
+  breaks: z.array(z.object({ what: z.string().min(1), fix: z.string().min(1) })).min(1),
+  /** How the real ones built it: only from each company's own posts, talks or docs. */
+  companies: z.array(z.object({ name: z.string().min(1), text: z.string().min(1), links: z.array(link).min(1) })).min(1),
+  /** Outside diagrams worth seeing, credited. Linked, never copied. */
+  others: z.array(z.object({ title: z.string(), publisher: z.string(), url: z.url(), licence: z.string().optional() })).default([]),
 });
 export type Design = z.infer<typeof designSchema>;
 
