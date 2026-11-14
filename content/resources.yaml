@@ -3821,6 +3821,39 @@
   free: true
   medium: read
 
+- id: claude-academy-platform-101
+  title: Claude Platform 101
+  author: Anthropic, Claude Academy
+  type: course
+  url: https://academy.claude.com/courses/claude-platform-101/what-is-the-claude-platform
+  free: true
+  medium: read
+  note: Lessons open without an account; signing in only saves progress.
+
+- id: claude-academy-evals
+  title: Introduction to evals
+  author: Anthropic, Claude Academy
+  type: course
+  url: https://academy.claude.com/courses/introduction-to-evals/when-to-use-what-model
+  free: true
+  medium: read
+
+- id: claude-academy-mcp
+  title: Introduction to Model Context Protocol
+  author: Anthropic, Claude Academy
+  type: course
+  url: https://academy.claude.com/courses/introduction-to-model-context-protocol/introducing-mcp
+  free: true
+  medium: read
+
+- id: claude-academy-capabilities
+  title: AI capabilities and limitations
+  author: Anthropic, Claude Academy
+  type: course
+  url: https://academy.claude.com/courses/ai-capabilities-and-limitations
+  free: true
+  medium: read
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

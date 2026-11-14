@@ -470,6 +470,10 @@
       locator: 'The README, then runs/speedrun.sh, which tokenises, pretrains, fine-tunes, evaluates and serves a small chat model'
       role: deep-dive
       verified: true
+    - resource: claude-academy-capabilities
+      locator: 'Next token prediction, knowledge, working memory and steerability, with the try-it-out lessons'
+      role: alternative
+      verified: true
 
 - id: llm-apis
   title: Prompting and LLM APIs
@@ -508,6 +512,10 @@
       verified: true
     - resource: deeplearning-ai-prompting
       locator: "The whole course"
+      verified: true
+    - resource: claude-academy-platform-101
+      locator: 'Your first API call, then the agent loop, tool use, thinking, MCP and context management'
+      role: alternative
       verified: true
 
 - id: embeddings
@@ -597,6 +605,10 @@
   resources:
     - resource: hamel-evals
       locator: "The whole post, then the follow-ups it links"
+      verified: true
+    - resource: claude-academy-evals
+      locator: 'All four lessons: choosing a model, a minimum viable eval, iterating the prompt, evals in production'
+      role: alternative
       verified: true
 
 - id: project-llm-app
@@ -768,6 +780,10 @@
     - resource: otel-genai-semconv
       locator: 'docs/gen-ai: agent spans and execute-tool spans'
       role: deep-dive
+      verified: true
+    - resource: claude-academy-mcp
+      locator: 'All ten lessons: clients, tools, the server inspector, resources and prompts'
+      role: alternative
       verified: true
 
 - id: fine-tuning
