@@ -26,6 +26,13 @@ const ogImage = Astro.site ? new URL('/og.png', Astro.site).href : '/og.png';
     <meta name="description" content={description} />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f1114" media="(prefers-color-scheme: dark)" />
+    <script is:inline>
+      // Apply a saved light or dark choice before the page paints. With no choice, the system setting decides.
+      try {
+        const t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>{fullTitle}</title>
     {canonical && <link rel="canonical" href={canonical} />}
@@ -58,6 +65,15 @@ const ogImage = Astro.site ? new URL('/og.png', Astro.site).href : '/og.png';
           <a href="/certifications" aria-current={path.startsWith('/certifications') ? 'page' : undefined}>Certifications</a>
         </nav>
         <Search />
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" />
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2.2" />
+            <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
     </header>
     <main id="main" class:list={['page', { wide }]}>
@@ -69,5 +85,26 @@ const ogImage = Astro.site ? new URL('/og.png', Astro.site).href : '/og.png';
         Found a dead link, or know something better? <a href="https://github.com/shivemn/terminus/issues">Tell us on GitHub</a>.
       </p>
     </footer>
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        const btn = document.getElementById('theme-toggle');
+        const system = matchMedia('(prefers-color-scheme: dark)');
+        const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : system.matches;
+        const label = () => {
+          const text = isDark() ? 'Switch to light mode' : 'Switch to dark mode';
+          btn.setAttribute('aria-label', text);
+          btn.title = text;
+        };
+        btn.addEventListener('click', () => {
+          const next = isDark() ? 'light' : 'dark';
+          root.dataset.theme = next;
+          try { localStorage.setItem('theme', next); } catch {}
+          label();
+        });
+        system.addEventListener('change', label);
+        label();
+      })();
+    </script>
   </body>
 </html>

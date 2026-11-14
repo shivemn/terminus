@@ -85,5 +85,6 @@ button.stop-title:hover, a.stop-title:hover { text-decoration: underline; text-d
 
 /* In dark mode the finished station is light, so the tick goes dark. */
 @media (prefers-color-scheme: dark) {
-  .stop[data-state='done'] .station svg { color: var(--paper); }
+  :root:not([data-theme='light']) .stop[data-state='done'] .station svg { color: var(--paper); }
 }
+:root[data-theme='dark'] .stop[data-state='done'] .station svg { color: var(--paper); }
