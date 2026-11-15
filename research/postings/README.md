@@ -23,3 +23,14 @@ Same search, same order and the same rule of opening each listing, with three di
 - **Phrase list version b.** `phrases-2026-11b.json` adds phrases for 44 stops these routes use, and removes matches that turned out to be noise: "consulting" (every Naukri page footer says "IT Services & Consulting"), "ledger" in blockchain listings, "transformers" in machine-learning listings, "budget" and "forecast" as key skills, and the C in "Objective C". The page footer (role, industry, department) is no longer read at all. The first 25 routes were tagged with version a and are unchanged.
 
 Mainframe developer stays a draft: neither "mainframe developer" nor "COBOL developer" returned 20 relevant entry-level listings. Indian freshers mostly reach mainframe work through employers' trainee programmes, which aren't posted under that title.
+
+## November 2026, deep career paths
+
+Some routes are second jobs, not first ones, and India has too few listings for them on Naukri. For these the plan is: search Naukri first, and only if it has fewer than 20 relevant listings at any level, use companies' own job boards worldwide, and say so on the route.
+
+- **Where:** the public Greenhouse and Ashby job boards of AI and infrastructure companies, read on 15 November 2026. These are the companies' own listings with full descriptions.
+- **Which listings:** every engineering listing whose title names the specialism, at most five per company so one large employer doesn't dominate, skipping managers, product, sales and support roles, and repeats of one role in several cities.
+- **How they were tagged:** these listings have no separate key-skills field, so only the "anywhere" phrases are used, on the title and full description. `phrases-2026-11c.json` adds phrases these listings use (NCCL, KV cache, RDMA, torch.compile) and drops version-b phrases that matched company blurbs instead of skills ("valuation", "recruitment", "networking opportunities", ".NET" in cluster names).
+- **Labelling:** the route's region says "Global" and how senior the listings are, and its note says why India wasn't used.
+
+**AI inference engineer (52 listings, 19 companies).** Naukri, searched for "inference engineer" at every experience level, returned one real inference role (Persistent, 5–10 years); the rest were MLOps and general AI listings. The global sample has one listing in India (Sarvam, Bengaluru). 34 of the 52 are senior or staff.

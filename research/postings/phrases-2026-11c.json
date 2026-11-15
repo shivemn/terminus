@@ -1,0 +1,102 @@
+{
+  "_note": "Version c, for the deep career paths checked against company job boards (November 2026). Same as version b, plus these patterns. These postings have no separate key-skills field, so only 'anywhere' patterns are used, on the title and full description. 'remove' drops version-b patterns that match boilerplate in these postings: 'valuation' and 'recruitment' come from company blurbs, '.NET' and 'node' from cluster terms, 'http' from links, 'regression' means performance regressions, and 'distributed system' is counted once, under distributed systems.",
+  "extends": "phrases-2026-11b.json",
+  "add": {
+    "distributed-systems": [
+      "distributed systems?",
+      "distributed (inference|serving|training)"
+    ],
+    "parallel-computing": [
+      "\\bnccl\\b",
+      "\\bcutlass\\b",
+      "gpu kernels?",
+      "triton kernels?",
+      "\\bkernels?\\b(?=[^.]{0,40}\\b(gpu|cuda|triton|attention|matmul))",
+      "multi-gpu"
+    ],
+    "inference-serving": [
+      "\\bsglang\\b",
+      "kv[- ]cache",
+      "continuous batching",
+      "speculative decoding",
+      "tensorrt-llm",
+      "quantiz"
+    ],
+    "computer-architecture": [
+      "memory hierarch",
+      "(hardware|chip|silicon) architecture",
+      "\\baccelerators?\\b",
+      "\\btpus?\\b"
+    ],
+    "pytorch": [
+      "torch\\.compile",
+      "\\btorch\\b"
+    ],
+    "transformers": [
+      "\\bllms?\\b",
+      "large language models?",
+      "attention"
+    ],
+    "os-processes-memory": [
+      "\\blinux kernel\\b",
+      "operating systems?"
+    ],
+    "observability": [
+      "\\btracing\\b",
+      "opentelemetry"
+    ],
+    "kubernetes": [
+      "\\bhelm\\b"
+    ],
+    "networking": [
+      "\\brdma\\b",
+      "infiniband",
+      "nvlink",
+      "networking stacks?"
+    ],
+    "compilers": [
+      "\\bcompilers?\\b",
+      "\\bmlir\\b",
+      "\\bllvm\\b",
+      "\\bxla\\b"
+    ],
+    "concurrency": [
+      "concurren",
+      "multi-?thread",
+      "\\basync"
+    ],
+    "cloud-basics": [
+      "\\baws\\b",
+      "\\bgcp\\b",
+      "\\bazure\\b",
+      "google cloud"
+    ],
+    "nodejs": [
+      "node\\.?js"
+    ]
+  },
+  "remove": {
+    "corporate-finance": [
+      "valuation"
+    ],
+    "hr-fundamentals": [
+      "recruitment",
+      "onboarding"
+    ],
+    "csharp": [
+      "\\.net\\b"
+    ],
+    "nodejs": [
+      "\\bnode(\\.js|js)?\\b"
+    ],
+    "web-http": [
+      "\\bhttp"
+    ],
+    "statistics": [
+      "regression"
+    ],
+    "system-design": [
+      "distributed system"
+    ]
+  }
+}

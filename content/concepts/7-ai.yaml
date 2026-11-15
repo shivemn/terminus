@@ -1226,6 +1226,33 @@
       role: deep-dive
       verified: true
 
+- id: project-llm-serving
+  title: "Project: serve an open LLM and make it faster"
+  area: ai
+  summary: An open model served behind an API, benchmarked honestly, then made faster or cheaper with one change you can measure.
+  hours: 30
+  kind: project
+  requires: [inference-serving, python-depth]
+  recommends: [docker, parallel-computing]
+  brief:
+    build: Serve a small open model with vLLM on a rented or free GPU, put it behind an OpenAI-compatible API, and benchmark it. Then change one thing, such as quantisation, prefix caching or batch size, and measure what it bought you and what it cost.
+    shows:
+    - Time to first token, time per output token, throughput and p99 latency, before and after
+    - The same load test run both times, at more than one level of concurrency
+    - An accuracy check, so a faster model isn't quietly a worse one
+    - Cost per million tokens worked out from GPU price and throughput
+    stretch:
+    - Compare two engines, such as vLLM and SGLang, on the same model and load
+    - Serve across two GPUs with tensor parallelism and explain the result
+    present: A repo with the exact commands to reproduce each run, a table and chart of the numbers, and a short write-up of what changed and why.
+  resources:
+    - resource: vllm-docs
+      locator: 'The quickstart, then serving with the OpenAI-compatible server'
+      verified: true
+    - resource: vllm-benchmarking
+      locator: 'The vllm bench CLI'
+      verified: true
+
 - id: project-mcp-servers
   title: 'Project: MCP servers other people use'
   area: ai

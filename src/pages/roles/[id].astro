@@ -69,12 +69,14 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
         <p class="evidence">
           {base && !role.evidence ? (
             <>
-              Its route, <a href={`/roles/${base.id}`}>{base.title}</a>, was checked against {evidence.postings} entry-level
-              Naukri listings in {monthName(evidence.collected)}.
+              Its route, <a href={`/roles/${base.id}`}>{base.title}</a>, was checked against {evidence.postings}{' '}
+              {evidence.region.startsWith('Global') ? "listings on companies' own job boards worldwide" : 'entry-level Naukri listings'} in {monthName(evidence.collected)}.
             </>
           ) : (
             <>
-              Checked against {evidence.postings} entry-level Naukri listings in {monthName(evidence.collected)}.
+              {evidence.region.startsWith('Global')
+                ? `Checked against ${evidence.postings} listings on companies' own job boards worldwide in ${monthName(evidence.collected)}.`
+                : `Checked against ${evidence.postings} entry-level Naukri listings in ${monthName(evidence.collected)}.`}
               {evidence.note && ` ${evidence.note}`}
             </>
           )}{' '}
@@ -111,7 +113,7 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
         {posting ? (
           <>
             <p class="job-source quiet">
-              Summarised in our own words from {posting.listings} entry-level listings on {posting.source}, {monthName(posting.collected)}.
+              Summarised in our own words from {posting.listings} {evidence?.region.startsWith('Global') ? '' : 'entry-level '}listings on {posting.source}, {monthName(posting.collected)}.
               {' '}{posting.method}
             </p>
             <div class="job-grid">
