@@ -33,16 +33,19 @@
   train line with stations. Signs and headings are in Teko (Indian Type
   Foundry, Ahmedabad); reading text is in Mukta (Ek Type, Mumbai).
 
-  The yellow board is the loud part. Everything else is black on white.
+  The yellow board is the loud part. Everything else is ink on warm paper,
+  like a printed timetable: --ground is the page, --paper the cards on it.
 */
 
 :root {
-  --paper: #ffffff;
-  --platform: #eff1f3;
-  --ink: #000000;
-  --ink-2: #464a4f;
-  --ink-3: #74797f;
-  --rule: #d6d9dc;
+  --ground: #f6f1e3;
+  --dot: rgba(40, 30, 0, 0.09);
+  --paper: #fffdf8;
+  --platform: #ece5d3;
+  --ink: #111111;
+  --ink-2: #48453d;
+  --ink-3: #69655a;
+  --rule: #d8d0bb;
   --yellow: #ffcc00;
   --on-yellow: #000000;
   --focus: #0057d9;
@@ -87,12 +90,14 @@
     --l-software: #6aa5ff; --l-data: #ff9a52; --l-infra: #cf9b62; --l-finance: #4fd1c0; --l-product: #f28ad8;
     --l-enterprise: #a3a6ff; --l-hardware: #c9d84e; --l-business: #6fd6ec;
     --l-text: #000;
-    --paper: #0f1114;
-    --platform: #191c21;
-    --ink: #f5f5f5;
-    --ink-2: #b7bbc1;
-    --ink-3: #888d94;
-    --rule: #2c3038;
+    --ground: #0f1114;
+    --dot: rgba(255, 255, 255, 0.05);
+    --paper: #171a1f;
+    --platform: #1f232a;
+    --ink: #f3f1ea;
+    --ink-2: #c2beb2;
+    --ink-3: #9c988c;
+    --rule: #343943;
     --focus: #7fb0ff;
     --warn: #f0b252;
 
@@ -123,12 +128,14 @@
     --l-software: #6aa5ff; --l-data: #ff9a52; --l-infra: #cf9b62; --l-finance: #4fd1c0; --l-product: #f28ad8;
     --l-enterprise: #a3a6ff; --l-hardware: #c9d84e; --l-business: #6fd6ec;
     --l-text: #000;
-    --paper: #0f1114;
-    --platform: #191c21;
-    --ink: #f5f5f5;
-    --ink-2: #b7bbc1;
-    --ink-3: #888d94;
-    --rule: #2c3038;
+    --ground: #0f1114;
+    --dot: rgba(255, 255, 255, 0.05);
+    --paper: #171a1f;
+    --platform: #1f232a;
+    --ink: #f3f1ea;
+    --ink-2: #c2beb2;
+    --ink-3: #9c988c;
+    --rule: #343943;
     --focus: #7fb0ff;
     --warn: #f0b252;
 
@@ -193,7 +200,10 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background-color: var(--ground);
+  /* A faint dot grid, like the squared paper behind a station timetable. */
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.4px);
+  background-size: 22px 22px;
   color: var(--ink);
   font-family: var(--text);
   font-size: 1.0625rem;
@@ -248,47 +258,113 @@ select { color-scheme: inherit; }
 }
 :root[data-theme='dark'] .board { border-color: var(--yellow); outline-color: #000; }
 
-/* Masthead */
-.theme-toggle {
-  display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0;
-  border: 2px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer;
+/*
+  Masthead. It stays at the top while you scroll and tightens up once the
+  page moves, so it takes less room over a long route. On a phone it's one
+  row (wordmark, theme switch, menu); the links and search drop down from it.
+*/
+.masthead {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--ground);
+  border-bottom: 3px solid var(--ink);
+  view-transition-name: masthead;
 }
-.theme-toggle:hover { background: var(--yellow); color: #000; border-color: #000; }
-.theme-toggle .icon-sun { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .theme-toggle .icon-sun { display: block; }
-  :root:not([data-theme='light']) .theme-toggle .icon-moon { display: none; }
-}
-:root[data-theme='dark'] .theme-toggle .icon-sun { display: block; }
-:root[data-theme='dark'] .theme-toggle .icon-moon { display: none; }
-@media (max-width: 640px) {
-  .theme-toggle { order: 1; margin-left: auto; }
-  .masthead nav { order: 2; width: 100%; }
-}
-.masthead { border-bottom: 3px solid var(--ink); }
 .masthead-inner {
   max-width: var(--page-w); margin: 0 auto; padding: 14px 24px;
-  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 12px 28px;
+  transition: padding 0.25s ease;
 }
+.scrolled .masthead-inner { padding-top: 7px; padding-bottom: 7px; }
 .wordmark {
   display: inline-flex; align-items: center; gap: 10px;
   font-family: var(--sign); font-weight: 600; font-size: 1.6rem;
   text-decoration: none; line-height: 1;
+  transition: font-size 0.25s ease;
 }
+.wordmark svg { transition: transform 0.25s ease; transform-origin: left center; }
+.scrolled .wordmark { font-size: 1.35rem; }
+.scrolled .wordmark svg { transform: scale(0.85); }
+.masthead-menu { display: contents; }
 .masthead nav { display: flex; gap: 6px 20px; flex-wrap: wrap; }
 .masthead nav a {
   font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1.1rem;
   text-decoration: none; color: var(--ink-2); padding: 4px 0;
+  box-shadow: inset 0 0 var(--yellow);
+  transition: color 0.15s ease, box-shadow 0.2s ease;
 }
 .masthead nav a:hover, .masthead nav a[aria-current='page'] { color: var(--ink); }
-.masthead nav a[aria-current='page'] { box-shadow: inset 0 -3px var(--yellow); }
+.masthead nav a:hover, .masthead nav a[aria-current='page'] { box-shadow: inset 0 -3px var(--yellow); }
+
+/* Light and dark: a switch with a sun that turns into a moon. */
+.theme-toggle {
+  position: relative; flex: none; width: 58px; height: 32px; padding: 0;
+  border: 2px solid var(--ink); border-radius: 16px; background: var(--paper);
+  cursor: pointer;
+}
+.theme-knob {
+  position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--yellow); border: 2px solid #000; overflow: hidden;
+  transition: transform 0.45s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.theme-knob::after {
+  /* The bite that turns the sun into a crescent moon. */
+  content: ''; position: absolute; left: 6px; top: -5px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--paper); transform: scale(0); transform-origin: 70% 30%;
+  transition: transform 0.35s ease 0.08s;
+}
+.theme-toggle:hover .theme-knob { box-shadow: 0 0 0 4px color-mix(in srgb, var(--yellow) 45%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-knob { transform: translateX(26px); }
+  :root:not([data-theme='light']) .theme-knob::after { transform: scale(1); }
+}
+:root[data-theme='dark'] .theme-knob { transform: translateX(26px); }
+:root[data-theme='dark'] .theme-knob::after { transform: scale(1); }
+
+.menu-toggle {
+  display: none; flex: none; align-items: center; gap: 8px; height: 40px; padding: 4px 12px 2px;
+  border: 2px solid var(--ink); background: var(--paper);
+  font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.1rem; line-height: 1;
+}
+.menu-icon { position: relative; width: 16px; height: 2px; background: currentColor; transition: background 0.2s; }
+.menu-icon::before, .menu-icon::after {
+  content: ''; position: absolute; left: 0; width: 16px; height: 2px; background: currentColor;
+  transition: transform 0.25s ease;
+}
+.menu-icon::before { top: -5px; }
+.menu-icon::after { top: 5px; }
+.menu-open .menu-icon { background: transparent; }
+.menu-open .menu-icon::before { transform: translateY(5px) rotate(45deg); }
+.menu-open .menu-icon::after { transform: translateY(-5px) rotate(-45deg); }
+
+@media (max-width: 760px) {
+  .masthead-inner { padding: 10px 16px; gap: 10px; }
+  .scrolled .masthead-inner { padding-top: 6px; padding-bottom: 6px; }
+  .theme-toggle { margin-left: auto; }
+  .menu-toggle { display: inline-flex; }
+  .masthead-menu {
+    position: absolute; left: 0; right: 0; top: 100%;
+    display: grid; gap: 14px; padding: 14px 16px 18px;
+    background: var(--ground); border-bottom: 3px solid var(--ink);
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+  .menu-open .masthead-menu { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  .masthead nav { display: grid; gap: 0; }
+  .masthead nav a { font-size: 1.35rem; padding: 10px 0 6px; border-bottom: 1px solid var(--rule); }
+}
 
 /* Page */
 .page { max-width: var(--page-w); margin: 0 auto; padding: 32px 24px 96px; }
 .page:not(.wide) > * { max-width: 780px; }
 
-.colophon { background: var(--platform); margin-top: 40px; }
-.colophon p { max-width: var(--page-w); margin: 0 auto; padding: 26px 24px 40px; color: var(--ink-2); font-size: 0.95rem; }
+.colophon { background: var(--platform); margin-top: 40px; border-top: 3px solid var(--ink); }
+.colophon-inner {
+  max-width: var(--page-w); margin: 0 auto; padding: 26px 24px 40px;
+  display: flex; flex-wrap: wrap; gap: 14px 48px; justify-content: space-between;
+  color: var(--ink-2); font-size: 0.95rem;
+}
+.colophon-inner p { max-width: 62ch; }
+.colophon nav { display: flex; flex-wrap: wrap; gap: 4px 18px; font-weight: 600; }
 
 /* Small shared pieces */
 .area-chip {
@@ -365,6 +441,51 @@ select { color-scheme: inherit; }
   text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 0.2em;
 }
 .text-button:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/*
+  Motion. Kept small and quick, and all of it off for anyone who has asked
+  their system for less motion (the class "motion" is only set when they
+  haven't, and only when JavaScript runs).
+*/
+
+/* Things that rise into place as they scroll into view. */
+.motion [data-reveal] {
+  opacity: 0; transform: translateY(22px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0s);
+}
+.motion [data-reveal].in { opacity: 1; transform: none; }
+
+/* Every button gives a small press and a yellow ring when clicked. */
+.pressed { animation: press 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.pressed-soft { animation: press-soft 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes press {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.9); }
+  30% { transform: scale(0.93); }
+  100% { transform: scale(1); box-shadow: 0 0 0 12px rgba(255, 204, 0, 0); }
+}
+@keyframes press-soft {
+  0% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.9); }
+  30% { transform: scale(0.985); }
+  100% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 204, 0, 0); }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* Moving between pages: the old page fades into the new; the masthead stays put. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.28s; }
+::view-transition-group(role-board) { animation-duration: 0.5s; animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+/* Switching light and dark: the new theme spreads out in a circle from the switch. */
+.theme-vt * { view-transition-name: none !important; }
+.theme-vt::view-transition-old(root) { animation: none; }
+.theme-vt::view-transition-new(root) { animation: theme-reveal 0.65s cubic-bezier(0.4, 0, 0.2, 1); mix-blend-mode: normal; }
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--tx, 95%) var(--ty, 30px)); }
+  to { clip-path: circle(var(--tr, 150vmax) at var(--tx, 95%) var(--ty, 30px)); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

@@ -185,7 +185,7 @@ Not everyone wants a whole job. Someone already working may only need Redis, or 
 
 ## 6c. The network and switching jobs
 
-The home page draws every job on one map (`src/lib/network.ts` for the layout, `src/components/NetworkMap.astro` to draw it). Each family is a line. A line calls at a stop when at least a third of its roles (and at least two) have it on their hiring list, up to seven stops. A stop two or more lines call at is an interchange: the place where one career can change to another. Lines go left to right in whichever of the 120 orders makes interchange links cross the fewest lines that don't stop there, keeping the families file's order on a tie. Rows follow prerequisites, so a line never calls at a stop before the stops it needs; an interchange gets a row to itself, and every other stop goes as high as it can. Each line ends in a comb of termini, one per job. Hovering a terminus lights up the stops on its hiring list, and the ticket's From choice greys out what's already behind you. Under 860 px wide the map gives way to a coloured list per line.
+The home page draws every job on one map (`src/lib/network.ts` for the layout, `src/components/NetworkMap.astro` to draw it). Each family is a line. A line calls at a stop when at least a third of its roles (and at least two) have it on their hiring list, up to seven stops. A stop two or more lines call at is an interchange: the place where one career can change to another. Lines go left to right in whichever of the 120 orders makes interchange links cross the fewest lines that don't stop there, keeping the families file's order on a tie. Rows follow prerequisites, so a line never calls at a stop before the stops it needs; an interchange gets a row to itself, and every other stop goes as high as it can. Each line ends in a comb of termini, one per job. Hovering a terminus lights up the stops on its hiring list, and the ticket's From choice greys out what's already behind you. Chips above the map show one line at a time. Zoom (100% fits the whole map, up to 260%) and drag are a CSS transform on the drawing, clamped so the map never leaves its frame. Picking a job opens a card with the stations its hiring list calls at and the other lines it meets there, built from the same network data inlined as JSON; the card links to the job's route. Under 860 px wide the map gives way to a folding list per line.
 
 Switching jobs uses the same planner. "Already working as" in the From list (`role:<id>`) treats that job's hiring and first-year lists, closed under their prerequisites (`withPrerequisites` in `graph.ts`), as known, and the route says how many of its stops the old job already covers.
 
@@ -237,13 +237,13 @@ Every page is plain HTML built at deploy time. The planner (with its panel) is t
 
 ### What ships
 
-Measured from `npm run build`, gzipped:
+Measured from `npm run build`, gzipped (15 November 2026):
 
 | Page | HTML | JavaScript |
 |---|---|---|
-| Home | 5.8 KB | about 1.5 KB inline (search, picker) |
-| Concept page | 4.6 KB | about 1 KB inline (search) |
-| Role page | 11.8 KB | 66 KB React runtime + 6.4 KB planner and panel; +2.9 KB when the map opens; +18 KB of stop data on the first panel |
+| Home | 56 KB, most of it the concept data the ticket re-plans with | about 6.5 KB (search, ticket pickers, the ride, the network map) |
+| Concept page | 11 KB | about 1 KB inline (search) |
+| Role page | 33 KB | 66 KB React runtime + 6.4 KB planner and panel; +2.9 KB when the map opens; +18 KB of stop data on the first panel |
 
 Fonts are the other cost: about 80 KB of woff2 on a first visit, cached after that. That's Teko's variable weight axis (15 KB for Latin) plus three weights of Mukta (about 21 KB each).
 
@@ -256,11 +256,12 @@ Fonts are self-hosted (Overpass, from `@fontsource-variable`). There's no reques
 The design borrows from the Mumbai local, because a learning path really is a train line:
 
 - **Station boards.** Each page's own name sits on a yellow board with black condensed capitals, like a station name board. There's one per page and nowhere else, so it stays special.
-- **The ticket.** The home page picker is a ticket: *From* your background *To* the role, with a perforated yellow stub holding "Plan my route".
+- **The ticket.** The home page picker is a ticket: *From* your background *To* the role, with a perforated yellow stub holding "Plan my route". It sits at the top of the home page. Both lists are long (over 300 jobs), so each `<select>` gets a button and a list you can type into (`src/scripts/picker.ts`); the select stays in the form underneath, so the form works without JavaScript. The ride beside it plays four example routes and then, once you fill in the ticket, your own.
 - **Train lines.** A route is a thick line with a station for every stop. The line takes the colour of each stop's area and turns solid as you finish stops. Projects get square stations.
 - **Type.** Two Indian typefaces. Signs, headings and station names are in Teko, by the Indian Type Foundry in Ahmedabad. Reading text is in Mukta, by Ek Type in Mumbai. Teko is self-hosted from `src/assets/fonts` with its own `@font-face`, which sets `size-adjust` and the ascent and descent overrides. Without that, Teko's small, high-sitting capitals would need nudging in every component.
-- **Colour.** Black on white, signage yellow, and one colour per area, checked in light and dark mode. In dark mode the boards stay yellow, the way station signs stay lit at night.
-- **Kept out on purpose:** rounded cards, soft shadows, gradients, all-caps labels on small text, and decorative animation. The only motion is the panel sliding in and the line filling as you tick stops, and both are switched off for people who ask for reduced motion.
+- **Colour.** Ink on warm paper (`--ground` for the page, a faint dot grid like squared timetable paper, `--paper` for the cards on it), signage yellow, and one colour per area, checked in light and dark mode. In dark mode the boards stay yellow, the way station signs stay lit at night.
+- **Motion, kept quick and purposeful.** Sections rise into place as they scroll in. Every button gives a small press and a yellow ring. The light/dark switch is a sun that turns into a moon, and the new theme spreads out in a circle from it. The network map's lines draw themselves in. On the home page a three-step explainer ("How the route is worked out") keeps a sample route pinned while its steps scroll past: the stops arrive in no order, the ones a maths degree covers are struck off, and the rest slide into order. On a role page, ticks spring in, the next stop pulses, the duration and arrival month flash when they change, and the stop panel slides in with Previous and Next. Moving between pages uses cross-document view transitions: the masthead stays put and a job's name flies from the link you clicked into the role page's board. All of it is CSS plus a few lines of script, no animation library, and none of it runs for people who ask for reduced motion (the `motion` class on `<html>` is only set when they haven't).
+- **Kept out on purpose:** rounded cards, soft blurred shadows, gradient washes, all-caps labels on small text, and motion that doesn't explain something or answer a click.
 
 Tokens live in `src/styles/global.css`. Area colours are set once, with `[data-area="systems"] { --line: … }`, and everything inside picks them up.
 

@@ -97,8 +97,9 @@ export function CalendarExport({ stops, pace, goal, roleId, routePath }: { stops
   };
 
   return (
-    <section>
-      <h2 className="side-heading">Put it in your calendar</h2>
+    <details className="side-tool">
+      <summary className="side-heading">Put it in your calendar</summary>
+      <div className="side-tool-body">
       {stops.length === 0 ? (
         <p className="quiet small">Nothing left to schedule on this route.</p>
       ) : (
@@ -137,7 +138,8 @@ export function CalendarExport({ stops, pace, goal, roleId, routePath }: { stops
           </p>
         </>
       )}
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -162,8 +164,9 @@ export function ProgressLink({ progress }: { progress: Progress }) {
   };
 
   return (
-    <section>
-      <h2 className="side-heading">On another device</h2>
+    <details className="side-tool">
+      <summary className="side-heading">Continue on another device</summary>
+      <div className="side-tool-body">
       {empty ? (
         <p className="quiet small">Once you tick or skip something, you can carry it to your phone or laptop with a link.</p>
       ) : (
@@ -181,6 +184,7 @@ export function ProgressLink({ progress }: { progress: Progress }) {
           )}
         </>
       )}
-    </section>
+      </div>
+    </details>
   );
 }

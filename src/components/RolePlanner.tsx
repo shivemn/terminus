@@ -237,6 +237,9 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
   const finished = plan.steps.filter((s) => done.has(s.id));
   const hoursLeft = plan.steps.filter((s) => !done.has(s.id)).reduce((h, s) => h + s.hours, 0);
   const left = plan.steps.length - finished.length;
+  /** Position of each stop along the whole route, for the stops' staggered entrance. */
+  const order = useMemo(() => new Map(plan.steps.map((s, i) => [s.id, i])), [plan.steps]);
+  const panelAt = panel ? plan.steps.findIndex((s) => s.id === panel) : -1;
 
   const byArea = areas
     .map((a) => {
@@ -352,6 +355,7 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
             behind you, so this route is only what's new.
           </p>
         )}
+        <div className="ride-bar">
         <div className="summary" aria-live="polite">
           {left === 0 ? (
             <p className="summary-main">
@@ -362,8 +366,8 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
           ) : (
             <>
               <p className="summary-main">
-                <strong>{duration(hoursLeft, pace)}</strong> at {pace} hours a week
-                {loaded && <>, arriving around <strong>{monthYear(hoursLeft / pace)}</strong></>}.
+                <strong key={`d-${hoursLeft}-${pace}`} className="flash">{duration(hoursLeft, pace)}</strong> at {pace} hours a week
+                {loaded && <>, arriving around <strong key={`m-${hoursLeft}-${pace}`} className="flash">{monthYear(hoursLeft / pace)}</strong></>}.
               </p>
               {nextStop && (
                 <p className="summary-next">
@@ -378,9 +382,18 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
             </>
           )}
         </div>
+        {plan.steps.length > 0 && (
+          <div className="meter">
+            <span className="meter-track" aria-hidden="true">
+              <span className="meter-fill" style={{ width: `${(finished.length / plan.steps.length) * 100}%` }} />
+            </span>
+            <span className="meter-text num">{finished.length} of {plan.steps.length} stops done</span>
+          </div>
+        )}
         <div className="tabs view-switch" role="group" aria-label="View">
           <button aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button>
           <button aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button>
+        </div>
         </div>
 
         {view === 'map' ? (
@@ -443,7 +456,15 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
                       ? 'Ready to start.'
                       : `After ${listOf(s.waitingOn.filter((p) => !done.has(p)).map(titleOf))}.`;
                 return (
-                  <li key={s.id} className="stop" data-area={s.area} data-state={state} data-kind={kindOf(s.id)}>
+                  <li
+                    key={s.id}
+                    className="stop"
+                    data-area={s.area}
+                    data-state={state}
+                    data-kind={kindOf(s.id)}
+                    data-next={nextStop?.id === s.id ? 'true' : undefined}
+                    style={{ ['--i' as string]: order.get(s.id) ?? 0 }}
+                  >
                     <button
                       className="station"
                       aria-pressed={state === 'done'}
@@ -461,6 +482,7 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
                       </div>
                       <p className="stop-sub">
                         <span className="area-name">{areaTitle.get(s.area)}</span>. {status}
+                        {nextStop?.id === s.id && <span className="next-flag">Next stop</span>}
                         {state !== 'done' && index.get(s.id)?.skipLabel && (
                           <>
                             {' '}
@@ -593,6 +615,9 @@ export default function RolePlanner({ role, concepts, areas, tiers, backgrounds,
           onOpen={openPanel}
           onToggleDone={() => toggleDone(panel)}
           onSkip={() => skip(panel)}
+          onPrev={panelAt > 0 ? () => openPanel(plan.steps[panelAt - 1]!.id) : undefined}
+          onNext={panelAt >= 0 && panelAt < plan.steps.length - 1 ? () => openPanel(plan.steps[panelAt + 1]!.id) : undefined}
+          position={panelAt >= 0 ? `${panelAt + 1} of ${plan.steps.length}` : undefined}
         />
       )}
     </div>

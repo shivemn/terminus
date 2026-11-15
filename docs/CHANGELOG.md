@@ -2,6 +2,11 @@
 
 ## 15 November 2026
 
+- **A redesign with motion.** Warm paper background with a faint dot grid instead of plain white, in light and dark. The light/dark button is now a switch whose sun turns into a moon, and the new theme spreads out in a circle from it. Every button gives a small press when clicked, sections rise into place as you scroll, and moving between pages fades instead of flashing.
+- **Home page.** The ticket is at the top, and both lists are now ones you can type into, so "data sci" finds Data scientist without scrolling 300 jobs. Fill it in and the ride beside it plays your own route. The network map draws itself in and can be filtered to one line, zoomed and dragged; picking a job opens a card with the stations it calls at and where it meets other lines. "How the route is worked out" is now three steps with a real route that rearranges itself as you scroll. On a phone the masthead is one row with a menu, and the job list folds by family.
+- **Role pages.** How long is left and how far you've come stay pinned under the masthead with a progress bar. The route is one unbroken line with slim week labels instead of boxes. Ticks spring in, the next stop pulses, and the stop panel has Previous and Next, with Mark as done always at the bottom. The calendar and the link for another device fold away until you want them. A job's name flies from the link you clicked into the role page's board.
+- **Fixed:** links shared from the site, and the sitemap, pointed to terminus.pages.dev instead of terminus-317.pages.dev, where the site lives.
+
 - **Stochastic processes, Go and vector search.** Lorig's open lecture notes on applied probability and stochastic processes (CC BY-SA, with solutions), Go by Example, and the SIGMOD 2027 DYLAN paper on filtered vector search.
 - **LLM serving gaps filled.** Prefix caching, chunked prefill, disaggregated prefill and decode, parallelism for serving, and benchmarking, each from vLLM's own docs.
 - **Free tiers for projects.** Software project briefs point to free-for.dev for free hosting and databases.

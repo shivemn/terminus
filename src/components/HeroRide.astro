@@ -2,7 +2,9 @@
 // The home page's opening: a few real tickets played one after another. Each
 // draws the route to a job from scratch, greys out what the starting point
 // already covers, then runs a train over what's left to the terminus.
-// Everything shown is worked out by the real planner at build time.
+// Everything shown is worked out by the real planner at build time. Once
+// someone fills in the home page ticket, their own route plays here instead
+// (sent over as a "terminus:ride" event).
 import { planPath, withPrerequisites } from '../lib/graph';
 import { duration } from '../lib/coaches';
 import { content } from '../lib/site';
@@ -67,7 +69,7 @@ const rides = EXAMPLES.map(({ from, to }) => {
           <span class="run-bar" aria-hidden="true" />
           <span class="run-board">{r.to}</span>
         </li>
-        <li class="train" aria-hidden="true"><span /></li>
+        <li class="ride-train" aria-hidden="true"><span /></li>
       </ol>
       <p class="run-foot">
         {r.behind} {r.behind === 1 ? 'stop is' : 'stops are'} already behind you. The rest takes {r.time} at 10 hours a week.
@@ -75,6 +77,7 @@ const rides = EXAMPLES.map(({ from, to }) => {
     </section>
   ))}
   <div class="run-controls">
+    <span class="run-yours" data-yours hidden>Your route</span>
     {rides.map((r, i) => (
       <button class="run-pick" data-pick={i} aria-pressed={i === 0 ? 'true' : 'false'} aria-label={`Show ${r.from} to ${r.to}`} />
     ))}
@@ -83,17 +86,31 @@ const rides = EXAMPLES.map(({ from, to }) => {
 </div>
 
 <script>
+  interface Ride {
+    from: string;
+    covers: string;
+    to: string;
+    stops: Array<{ title: string; hours: number; skip: boolean }>;
+    more: number;
+    behind: number;
+    time: string;
+  }
+
   const ride = document.querySelector<HTMLElement>('[data-ride]');
   if (ride) {
-    const runs = [...ride.querySelectorAll<HTMLElement>('[data-run]')];
+    let runs = [...ride.querySelectorAll<HTMLElement>('[data-run]')];
+    const examples = runs.length;
     const picks = [...ride.querySelectorAll<HTMLButtonElement>('[data-pick]')];
     const pause = ride.querySelector<HTMLButtonElement>('[data-pause]')!;
+    const yours = ride.querySelector<HTMLElement>('[data-yours]')!;
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ROW = 44; // keep in step with .run-stop height
     let current = 0;
     let timers: number[] = [];
     let paused = still;
     let visible = true;
+    /** True while the visitor's own route is showing: the examples stop taking turns. */
+    let own = false;
 
     const later = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
     const clear = () => { timers.forEach(clearTimeout); timers = []; };
@@ -111,9 +128,10 @@ const rides = EXAMPLES.map(({ from, to }) => {
         r.querySelector<HTMLElement>('.run-end')!.removeAttribute('data-arrived');
       });
       picks.forEach((p, j) => p.setAttribute('aria-pressed', String(j === i)));
+      yours.hidden = i < examples;
       const run = runs[i]!;
       const stops = [...run.querySelectorAll<HTMLElement>('.run-stop')];
-      const train = run.querySelector<HTMLElement>('.train')!;
+      const train = run.querySelector<HTMLElement>('.ride-train')!;
       // Where the train calls: every stop still ahead, then the terminus.
       const calls = stops.map((s, j) => ({ s, j })).filter(({ s }) => !s.dataset.skip);
       const placeTrain = (j: number) => { train.style.transform = `translateY(${j * ROW}px)`; };
@@ -130,11 +148,91 @@ const rides = EXAMPLES.map(({ from, to }) => {
       calls.forEach(({ j }, k) => later(2300 + k * 600, () => placeTrain(j)));
       const arrive = 2300 + (calls.length - 1) * 600;
       later(arrive + 300, () => run.querySelector('.run-end')!.setAttribute('data-arrived', 'true'));
-      later(arrive + 3200, () => { if (!paused && visible) show((i + 1) % runs.length, true); });
+      later(arrive + 3200, () => { if (!paused && !own && visible) show((i + 1) % examples, true); });
     }
 
-    picks.forEach((p, i) => p.addEventListener('click', () => show(i, !paused)));
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string) => {
+      const e = document.createElement(tag);
+      e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+
+    /** The visitor's own route, drawn the same way as the examples. */
+    function build(r: Ride): HTMLElement {
+      const run = el('section', 'ticket-run');
+      run.dataset.run = '';
+      run.dataset.own = '';
+      const head = el('header', 'run-head');
+      const from = el('span', 'run-from');
+      from.append(el('span', 'run-label', 'From'), ` ${r.from}`);
+      const to = el('span', 'run-to');
+      to.append(el('span', 'run-label', 'To'), ` ${r.to}`);
+      head.append(from, to);
+      const line = el('ol', 'run-line');
+      r.stops.forEach((s, j) => {
+        const li = el('li', 'run-stop');
+        if (s.skip) li.dataset.skip = 'true';
+        li.style.setProperty('--i', String(j));
+        const dot = el('span', 'run-dot');
+        dot.setAttribute('aria-hidden', 'true');
+        li.append(dot, el('span', 'run-title', s.title), el('span', 'run-tag', s.skip ? r.covers : `${s.hours} h`));
+        line.append(li);
+      });
+      if (r.more > 0) {
+        const li = el('li', 'run-stop run-more');
+        li.style.setProperty('--i', String(r.stops.length));
+        const dot = el('span', 'run-dot');
+        dot.setAttribute('aria-hidden', 'true');
+        li.append(dot, el('span', 'run-title', `${r.more} more ${r.more === 1 ? 'stop' : 'stops'}`));
+        line.append(li);
+      }
+      const end = el('li', 'run-stop run-end');
+      end.style.setProperty('--i', String(r.stops.length + 1));
+      const bar = el('span', 'run-bar');
+      bar.setAttribute('aria-hidden', 'true');
+      end.append(bar, el('span', 'run-board', r.to));
+      const train = el('li', 'ride-train');
+      train.setAttribute('aria-hidden', 'true');
+      train.append(document.createElement('span'));
+      line.append(end, train);
+      const foot = el(
+        'p',
+        'run-foot',
+        r.behind > 0
+          ? `${r.behind} ${r.behind === 1 ? 'stop is' : 'stops are'} already behind you. The rest takes ${r.time} at 10 hours a week.`
+          : `From the very beginning: ${r.time} at 10 hours a week. Pick where you're starting from and what you know is left out.`,
+      );
+      run.append(head, line, foot);
+      return run;
+    }
+
+    document.addEventListener('terminus:ride', (e) => {
+      const r = (e as CustomEvent<Ride | null>).detail;
+      runs.slice(examples).forEach((x) => x.remove());
+      runs = runs.slice(0, examples);
+      if (!r) {
+        own = false;
+        show(0, !paused);
+        return;
+      }
+      const run = build(r);
+      ride.querySelector('.run-controls')!.before(run);
+      runs.push(run);
+      own = true;
+      pause.textContent = 'Play examples';
+      show(examples, !still);
+    });
+
+    picks.forEach((p, i) => p.addEventListener('click', () => { own = false; show(i, !paused); }));
     pause.addEventListener('click', () => {
+      if (own) {
+        own = false;
+        paused = false;
+        pause.textContent = 'Pause';
+        show(0, !still);
+        return;
+      }
       paused = !paused;
       pause.textContent = paused ? 'Play' : 'Pause';
       show(current, !paused);
@@ -155,7 +253,8 @@ const rides = EXAMPLES.map(({ from, to }) => {
   }
 </script>
 
-<style>
+<style is:global>
+  /* Global, not scoped: the visitor's own route is built in the browser. */
   .ride { --row: 44px; border: 3px solid var(--ink); background: var(--paper); }
   .ticket-run { display: none; }
   .ticket-run[data-active] { display: block; }
@@ -198,13 +297,13 @@ const rides = EXAMPLES.map(({ from, to }) => {
   .run-end[data-arrived] .run-board { background: var(--yellow); color: #000; border-color: #000; }
 
   /* The train: a single coach riding the line. */
-  .train {
+  .ride-train {
     position: absolute; left: 18px; top: 18px; width: 34px; height: var(--row); display: grid; place-items: center;
     transition: transform 0.5s cubic-bezier(0.45, 0, 0.3, 1); z-index: 2; pointer-events: none;
     opacity: 0;
   }
-  [data-greyed] .train, [data-final] .train { opacity: 1; }
-  .train span { width: 26px; height: 34px; background: var(--yellow); border: 3px solid #000; border-radius: 7px 7px 3px 3px; box-shadow: inset 0 9px 0 -4px #000; }
+  [data-greyed] .ride-train, [data-final] .ride-train { opacity: 1; }
+  .ride-train span { width: 26px; height: 34px; background: var(--yellow); border: 3px solid #000; border-radius: 7px 7px 3px 3px; box-shadow: inset 0 9px 0 -4px #000; }
 
   .run-foot { margin: 0; padding: 4px 18px 16px 70px; color: var(--ink-2); font-size: 0.95rem; min-height: 3em; }
 
@@ -212,9 +311,13 @@ const rides = EXAMPLES.map(({ from, to }) => {
   .run-pick { width: 26px; height: 8px; border: 2px solid var(--ink); background: transparent; padding: 0; cursor: pointer; }
   .run-pick[aria-pressed='true'] { background: var(--ink); }
   .run-pause { margin-left: auto; font-size: 0.92rem; }
+  .run-yours { margin-right: 6px; font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1rem; background: var(--yellow); color: #000; padding: 2px 8px 0; }
+  .run-yours[hidden] { display: none; }
+  .run-yours:not([hidden]) ~ .run-pick { opacity: 0.45; }
+  .ticket-run[data-own] { animation: rise 0.35s ease; }
 
   @media (prefers-reduced-motion: reduce) {
-    .run-stop, .train, .run-board, .run-tag, .run-title, .run-dot { transition: none !important; }
+    .run-stop, .ride-train, .run-board, .run-tag, .run-title, .run-dot { transition: none !important; }
   }
   @media (max-width: 480px) {
     .run-tag { display: none; }

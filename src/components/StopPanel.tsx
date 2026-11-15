@@ -44,6 +44,11 @@ interface Props {
   onOpen: (id: string) => void;
   onToggleDone: () => void;
   onSkip: () => void;
+  /** The stops before and after this one on the route, when it's on the route. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  /** "3 of 12": where this stop is on the route. */
+  position?: string;
 }
 
 function Pick({ medium, source, stopTitle }: { medium: Medium; source?: Source; stopTitle: string }) {
@@ -90,12 +95,18 @@ export default function StopPanel(props: Props) {
     loadStops().then(setStops, () => setFailed(true));
   }, []);
 
+  const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    closeRef.current?.focus({ preventScroll: true });
+    bodyRef.current?.scrollTo({ top: 0 });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight' && props.onNext && !(e.target as HTMLElement).closest('input, textarea, select')) props.onNext();
+      else if (e.key === 'ArrowLeft' && props.onPrev && !(e.target as HTMLElement).closest('input, textarea, select')) props.onPrev();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [id, onClose]);
+  }, [id, onClose, props.onNext, props.onPrev]);
 
   const stop = stops?.[id];
 
@@ -103,6 +114,7 @@ export default function StopPanel(props: Props) {
     <>
       <div className="panel-backdrop" onClick={onClose} />
       <aside className="panel" role="dialog" aria-labelledby="panel-title" data-area={stop?.area}>
+        <div className="panel-body" ref={bodyRef}>
         <button ref={closeRef} className="panel-close" onClick={onClose} aria-label="Close">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
@@ -110,10 +122,11 @@ export default function StopPanel(props: Props) {
         {!stop ? (
           <p className="quiet panel-loading">{failed ? 'Couldn’t load this stop. Check your connection and try again.' : 'Loading…'}</p>
         ) : (
-          <>
+          <div className="panel-content" key={id}>
             <p className="panel-chips">
               <span className="area-chip">{props.areaTitle(stop.area)}</span>
               {stop.kind !== 'concept' && <span className="kind">{stop.kind === 'tool' ? 'Tool' : 'Project'}</span>}
+              {props.position && <span className="panel-pos faint num">Stop {props.position}</span>}
             </p>
             <h2 id="panel-title">{stop.title}</h2>
             <p className="panel-summary">{stop.summary}</p>
@@ -199,13 +212,26 @@ export default function StopPanel(props: Props) {
             )}
 
             <div className="panel-actions">
-              <button className="btn" onClick={props.onToggleDone}>
-                {props.done ? 'Mark as not done' : 'Mark as done'}
-              </button>
               {!props.isTarget && <button className="text-button" onClick={props.onSkip}>Skip it, I know this</button>}
               <a className="text-button" href={`/concepts/${stop.id}`}>Full page</a>
             </div>
-          </>
+          </div>
+        )}
+        </div>
+        {stop && (
+          <div className="panel-foot">
+            <button className="panel-step" onClick={props.onPrev} disabled={!props.onPrev} aria-label="Previous stop">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+              <span>Previous</span>
+            </button>
+            <button className={props.done ? 'btn panel-done is-done' : 'btn panel-done'} onClick={props.onToggleDone} aria-pressed={props.done}>
+              {props.done ? 'Done. Mark as not done' : 'Mark as done'}
+            </button>
+            <button className="panel-step" onClick={props.onNext} disabled={!props.onNext} aria-label="Next stop">
+              <span>Next</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
         )}
       </aside>
     </>

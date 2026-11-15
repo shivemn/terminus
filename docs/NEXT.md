@@ -93,7 +93,18 @@ Add as routes, each checked against real job postings like the others:
 ## Decided against
 
 - The motion prototype (split-flap board, moving train, LED indicator).
-  Keep the current, minimal UI.
+  Keep the current, minimal UI. (Revisited 15 November: a lighter motion
+  pass shipped instead, approved from a sample: warm paper background,
+  theme switch with a circular reveal, button presses, an explorable
+  network map, a pinned "how the route is worked out" explainer and page
+  transitions. Still no split-flap or LED.)
+
+## UI follow-ups (from the 15 November redesign)
+
+- All roles, Tools, Practice and Certifications: a sticky filter row, and
+  compact rows with "also posted as" titles folded away.
+- Concept and tool pages: two columns on desktop, with "Where to learn it"
+  sticky on the right; group "Which roles ask for it" by family.
 
 ## Housekeeping (Shi)
 

@@ -38,7 +38,7 @@ Terminus starts from a ticket: *From a maths graduate, To Backend engineer.* Eac
 
 Every role is a draft until its tiers have been checked against real job postings. [docs/ROLES.md](docs/ROLES.md) explains how, and `npm run evidence` does the counting.
 
-The look is borrowed from the Mumbai local: yellow station boards, a ticket for picking your route, and routes drawn as train lines. Signs and headings are set in Teko, by the Indian Type Foundry in Ahmedabad. Reading text is set in Mukta, by Ek Type in Mumbai.
+The look is borrowed from the Mumbai local: yellow station boards on warm timetable paper, a ticket for picking your route, and routes drawn as train lines. Signs and headings are set in Teko, by the Indian Type Foundry in Ahmedabad. Reading text is set in Mukta, by Ek Type in Mumbai. The motion is small and quick (sections rising in, a press on every button, a sun-to-moon theme switch, a map that draws itself), and all of it switches off for anyone who asks their system for reduced motion.
 
 ## How the order is worked out
 

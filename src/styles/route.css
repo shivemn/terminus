@@ -35,14 +35,29 @@
   background: var(--paper);
   padding: 0;
   display: grid; place-items: center;
-  transition: background-color 0.2s ease, transform 0.15s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
-button.station:hover { transform: scale(1.1); }
-.station svg { width: 12px; height: 12px; opacity: 0; transition: opacity 0.15s; }
-button.station:hover svg { opacity: 0.4; }
+button.station:hover { transform: scale(1.15); }
+/* The tick springs in when you finish a stop. */
+.station svg {
+  width: 13px; height: 13px; opacity: 0; transform: scale(0.3) rotate(-20deg);
+  transition: opacity 0.15s, transform 0.35s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+button.station:hover svg { opacity: 0.4; transform: none; }
 .stop[data-state='waiting'] .station { border-color: var(--ink-3); border-width: 3px; }
-.stop[data-state='done'] .station { background: var(--ink); border-color: var(--ink); }
-.stop[data-state='done'] .station svg { opacity: 1; color: var(--yellow); }
+.stop[data-state='done'] .station { background: var(--yellow); border-color: #000; }
+.stop[data-state='done'] .station svg { opacity: 1; transform: none; color: #000; }
+/* Ready to start: a slow pulse on the next stop's station. */
+.stop[data-next] .station { box-shadow: 0 0 0 0 color-mix(in srgb, var(--yellow) 80%, transparent); }
+.motion .stop[data-next] .station { animation: next-pulse 2.2s ease-out infinite; }
+@keyframes next-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--yellow) 85%, transparent); } 70%, 100% { box-shadow: 0 0 0 12px transparent; } }
+.next-flag {
+  display: inline-block; margin-left: 8px; padding: 1px 8px 0; vertical-align: 1px;
+  background: var(--yellow); color: #000; font-size: 0.8rem; font-weight: 700; line-height: 1.5;
+  animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Stops ride in one after another when the route is drawn or redrawn. */
+.motion .planner .stop { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: min(calc(var(--i, 0) * 45ms), 700ms); }
 .stop[data-kind='project'] .station { border-radius: 3px; }
 
 .stop-body { padding: 6px 0 24px; min-width: 0; }
@@ -83,8 +98,4 @@ button.stop-title:hover, a.stop-title:hover { text-decoration: underline; text-d
 
 .route-end { padding-left: 56px; color: var(--ink-2); font-size: 0.95rem; }
 
-/* In dark mode the finished station is light, so the tick goes dark. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .stop[data-state='done'] .station svg { color: var(--paper); }
-}
-:root[data-theme='dark'] .stop[data-state='done'] .station svg { color: var(--paper); }
+/* A finished station is yellow with a black tick in both themes. */

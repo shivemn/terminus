@@ -4,7 +4,8 @@ import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  // Change this if the Cloudflare Pages project gets a different name, or once there's a custom domain.
-  site: 'https://terminus.pages.dev',
+  // Where the site is served, for canonical links, share previews and the sitemap. The Cloudflare
+  // Pages project is "terminus-317"; change this if it moves or gets a custom domain.
+  site: 'https://terminus-317.pages.dev',
   integrations: [react(), sitemap({ filter: (page) => !page.endsWith('/404/') })],
 });

@@ -2,10 +2,13 @@
 import Base from '../layouts/Base.astro';
 import NetworkMap from '../components/NetworkMap.astro';
 import HeroRide from '../components/HeroRide.astro';
-import { withPrerequisites } from '../lib/graph';
+import { planPath, withPrerequisites } from '../lib/graph';
+import { duration } from '../lib/coaches';
 import { BACKGROUND_GROUPS } from '../lib/schema';
 import { content, plannerNodes } from '../lib/site';
 import { stopDetails } from '../lib/stops';
+import { midSentence } from '../lib/text';
+import '../styles/picker.css';
 import '../styles/route.css';
 
 const c = content();
@@ -41,72 +44,42 @@ const counts = {
   projects: c.concepts.filter((x) => x.kind === 'project').length,
   resources: c.resources.filter((r) => r.free).length,
 };
+
+// "How the route is worked out", told with one real example from the planner.
+const EX = { from: 'maths-grad', to: 'data-scientist' };
+const exRole = c.roles.find((r) => r.id === EX.to)!;
+const exBg = c.backgrounds.find((b) => b.id === EX.from)!;
+const exFull = planPath(c.concepts, exRole.tiers.hire, new Set());
+const exMine = planPath(c.concepts, exRole.tiers.hire, new Set(exBg.knows));
+const exOrder = new Map(exMine.steps.map((s, i) => [s.id, i]));
+const exAlpha = [...exFull.steps].sort((a, b) => a.title.localeCompare(b.title));
+const explain = {
+  title: `${exBg.title} to ${exRole.title}`,
+  role: exRole.title,
+  rows: exAlpha.map((s, i) => ({ title: s.title, hours: s.hours, a: i, o: exOrder.get(s.id) ?? -1 })),
+  total: exFull.steps.length,
+  left: exMine.steps.length,
+  skipped: exFull.steps.length - exMine.steps.length,
+  time: duration(exMine.totalHours, 10),
+};
+const famRoutes = routeGroups.map((g) => g.roles.length);
 ---
 
 <Base title="Terminus" wide>
   <section class="intro" aria-labelledby="intro-heading">
     <div class="intro-text">
-      <h1 id="intro-heading">Roadmaps are the same for everyone. This one starts from you.</h1>
-      <p class="lede">
-        Terminus is a free study planner for jobs in software, data, infrastructure, finance and product. Tell it
-        where you're starting and which job you want. It works out every topic in between, leaves out what you
-        already know, and puts the rest in order, like stops on a line.
+      <h1 id="intro-heading" data-reveal>Roadmaps are the same for everyone. This one <span class="mark">starts from you.</span></h1>
+      <p class="lede" data-reveal style="--delay: 0.08s">
+        A free study planner for jobs in software, data, infrastructure, finance and product. Say where you're
+        starting and which job you want. Terminus works out every topic in between, leaves out what you already
+        know, and puts the rest in order, like stops on a line.
       </p>
-      <ol class="how-steps">
-        <li><span><strong>From.</strong> Your degree, or the job you do now.</span></li>
-        <li><span><strong>To.</strong> One of {jobs.length} jobs or {exams.length} exams.</span></li>
-        <li><span><strong>The ride.</strong> Each stop has a book, a video course and a place to practise, all free. Tick them off as you go; no account needed.</span></li>
-      </ol>
-      <div class="welcome" data-welcome hidden>
-        <h2>Welcome back. The jobs closest to where you are:</h2>
-        <ol data-welcome-list></ol>
-      </div>
-      <p class="intro-actions">
-        <a class="btn" href="#plan">Plan my route</a>
-        <a class="intro-map" href="#roles">See the whole network</a>
-      </p>
-    </div>
-    <HeroRide />
-  </section>
-
-  <section class="roles" id="roles" aria-labelledby="roles-heading">
-    <h2 id="roles-heading">Where you can go</h2>
-    <p class="roles-lede">
-      Every line ends at a job. Where two lines share a stop, those jobs ask for the same skills, so that's where you
-      can change from one career to the other. Pick a job to see its route.
-    </p>
-    <div class="map-wide">
-      <NetworkMap />
-      <p class="exams-line">
-        <a href="/roles">All {jobs.length} job titles</a>, grouped by route. Studying for an exam instead?{' '}
-        {exams.map((r, i) => (
-          <>{i > 0 && ', '}<a href={`/roles/${r.id}`}>{r.title}</a></>
-        ))}
-        .
-      </p>
-    </div>
-    <div class="families">
-      {
-        routeGroups.map(({ family, roles }) => (
-          <div data-family={family.id}>
-            <h3>{family.title}</h3>
-            <ul>{roles.map((r) => <li><a href={`/roles/${r.id}`}>{r.title}</a></li>)}</ul>
-          </div>
-        ))
-      }
-    </div>
-  </section>
-
-  <section class="plan" id="plan" aria-labelledby="plan-heading">
-    <div class="plan-ticket">
-      <h2 id="plan-heading">Plan your route</h2>
-      <p class="plan-lede">Pick where you're starting and where you're going. The first stations show up on the right, and the map above greys out what's already behind you.</p>
-      <form class="ticket" action="/roles" method="get" data-picker>
+      <form class="ticket" action="/roles" method="get" data-picker data-reveal style="--delay: 0.16s">
         <div class="ticket-main">
-          <label class="ticket-row">
-            <span class="ticket-label">From</span>
-            <select name="from" required>
-              <option value="" disabled selected>Select your background</option>
+          <div class="ticket-row">
+            <label class="ticket-label" id="ticket-from" for="ticket-from-select">From</label>
+            <select name="from" id="ticket-from-select" required>
+              <option value="" disabled selected>Your degree, or the job you do now</option>
               {BACKGROUND_GROUPS.map((g) => (
                 <optgroup label={g.title}>
                   {c.backgrounds.filter((b) => b.group === g.id).map((b) => <option value={b.id}>{b.title}</option>)}
@@ -116,67 +89,135 @@ const counts = {
                 {jobs.map((r) => <option value={`role:${r.id}`}>{r.title}</option>)}
               </optgroup>
             </select>
-          </label>
-          <label class="ticket-row">
-            <span class="ticket-label">To</span>
-            <select name="role" required>
-              <option value="" disabled selected>Select a job</option>
+          </div>
+          <div class="ticket-row">
+            <label class="ticket-label" id="ticket-to" for="ticket-to-select">To</label>
+            <select name="role" id="ticket-to-select" required>
+              <option value="" disabled selected>One of {jobs.length} jobs or {exams.length} exams</option>
               {groups.map(({ family, roles }) => (
                 <optgroup label={family.title}>
                   {roles.map((r) => <option value={r.id}>{r.title}</option>)}
                 </optgroup>
               ))}
             </select>
-          </label>
+          </div>
         </div>
         <div class="ticket-stub">
           <button type="submit" class="btn">Plan my route</button>
           <span class="ticket-small">Free. No account.</span>
         </div>
       </form>
-      <p class="one-tool">
-        Or learn just one tool:{' '}
+      <p class="intro-note" data-reveal style="--delay: 0.24s">
+        Each stop has a book, a video course and a place to practise, all free. Tick them off as you go. Or learn just
+        one tool:{' '}
         {featured.map((x, i) => (
           <>{i > 0 && ', '}<a href={`/tools/${x.id}`}>{x.title}</a></>
         ))}
-        . <a href="/tools">All {toolCount} tools</a>
+        , or <a href="/tools">any of {toolCount}</a>.
       </p>
+      <div class="welcome" data-welcome hidden>
+        <h2>Welcome back. The jobs closest to where you are:</h2>
+        <ol data-welcome-list></ol>
+      </div>
     </div>
-
-    <section class="preview" aria-labelledby="preview-heading">
-      <h2 id="preview-heading" data-preview-heading>Your first stations</h2>
-      <ol class="route" data-preview-route aria-live="polite"></ol>
-      <p class="route-end" data-preview-end>Pick a job on the ticket and its first stations appear here.</p>
-      <script type="application/json" id="preview-data" set:html={JSON.stringify(previewData)} />
-    </section>
+    <div class="intro-ride" data-reveal style="--delay: 0.2s">
+      <HeroRide />
+    </div>
+    <script type="application/json" id="preview-data" set:html={JSON.stringify(previewData)} />
   </section>
 
-  <section class="how" aria-labelledby="how-heading">
-    <h2 id="how-heading">How the route is worked out</h2>
-    <div class="how-cols">
-      <p>
-      Every role lists what it needs in three tiers: what gets you hired, what the first year expects, and what's
-      good to have. Every topic lists what you need to know before it. Terminus walks back from the role through
-      those prerequisites and stops wherever your background already covers the ground, so a CS graduate aiming
-      for backend work never sees an intro programming course. What's left goes in order, starting the longest
-      chains first and keeping you on one line at a time where it can.
+  <section class="roles" id="roles" aria-labelledby="roles-heading">
+    <h2 id="roles-heading" data-reveal>Where you can go</h2>
+    <p class="roles-lede" data-reveal style="--delay: 0.06s">
+      Every line ends at a job. Where two lines share a stop, those jobs ask for the same skills, so that's where you
+      can change from one career to the other. Pick a line, or pick a job to see where it meets the others.
     </p>
-      <p>
+    <div class="map-wide" data-reveal style="--delay: 0.1s">
+      <NetworkMap />
+    </div>
+    <div class="families">
+      {
+        routeGroups.map(({ family, roles }, i) => (
+          <details data-family={family.id} open={i === 0}>
+            <summary><span>{family.title}</span> <span class="num quiet">{famRoutes[i]}</span></summary>
+            <ul>{roles.map((r) => <li><a href={`/roles/${r.id}`}>{r.title}</a></li>)}</ul>
+          </details>
+        ))
+      }
+    </div>
+    <p class="exams-line">
+      <a href="/roles">All {jobs.length} job titles</a>, grouped by route. Studying for an exam instead?{' '}
+      {exams.map((r, i) => (
+        <>{i > 0 && ', '}<a href={`/roles/${r.id}`}>{r.title}</a></>
+      ))}
+      .
+    </p>
+  </section>
+
+  <section class="how" aria-labelledby="how-heading" data-explain data-step="1">
+    <h2 id="how-heading" data-reveal>How the route is worked out</h2>
+    <p class="roles-lede" data-reveal style="--delay: 0.06s">Three steps, shown with one real route. Scroll through them, or pick one.</p>
+    <div class="how-grid">
+      <ol class="how-steps">
+        <li data-step-text="1">
+          <button type="button" class="step-head" data-go="1"><span class="step-n">1</span><span class="step-title">Start from the job</span></button>
+          <p>
+            Every role lists what it needs in three tiers: what gets you hired, what the first year expects, and what's
+            good to have. For {midSentence(explain.role)}s the hiring list comes to {explain.total} stops, from the
+            very first one.
+          </p>
+        </li>
+        <li data-step-text="2">
+          <button type="button" class="step-head" data-go="2"><span class="step-n">2</span><span class="step-title">Strike off what you know</span></button>
+          <p>
+            Every topic lists what you need to know before it. Terminus walks back from the role through those and
+            stops wherever your background already covers the ground. A maths or statistics degree covers
+            {' '}{explain.skipped} of these stops, so they're left out.
+          </p>
+        </li>
+        <li data-step-text="3">
+          <button type="button" class="step-head" data-go="3"><span class="step-n">3</span><span class="step-title">Put the rest in order</span></button>
+          <p>
+            What's left goes in order, starting the longest chains first and keeping you on one line at a time where it
+            can: {explain.left} stops, {explain.time} at 10 hours a week.
+          </p>
+        </li>
+      </ol>
+      <div class="explain-card" aria-hidden="true">
+        <p class="explain-head">{explain.title}</p>
+        <div class="explain-line" style={`--rows:${explain.total}; --left:${explain.left}`}>
+          <span class="explain-rail"></span>
+          {explain.rows.map((r) => (
+            <div class="explain-row" data-skip={r.o < 0 ? 'true' : undefined} style={`--a:${r.a}; --o:${r.o}`}>
+              <span class="explain-dot"></span>
+              <span class="explain-title">{r.title}</span>
+              <span class="explain-tag"><span class="tag-h">{r.hours} h</span>{r.o < 0 && <span class="tag-cover">Your degree covers it</span>}</span>
+            </div>
+          ))}
+          <div class="explain-end"><span class="run-bar"></span><span class="explain-board">{explain.role}</span></div>
+        </div>
+        <p class="explain-note">
+          <span data-note="1">{explain.total} stops on the hiring list, in no particular order.</span>
+          <span data-note="2">{explain.skipped} are already behind you. {explain.left} are left.</span>
+          <span data-note="3">{explain.left} stops, {explain.time} at 10 hours a week.</span>
+        </p>
+      </div>
+    </div>
+    <p class="how-facts quiet">
       So far there are {counts.concepts} concepts, {counts.tools} tools and {counts.projects} projects.{' '}
       {pickCount.read} have a book or written guide picked and {pickCount.watch} have a video course.
       Role lists are drafts until they've been checked against real job postings. The
       {' '}<a href="https://github.com/shivemn/terminus/blob/main/docs/SYSTEM_DESIGN.md">design notes</a> have the details.
     </p>
-    </div>
   </section>
 </Base>
 
 <script>
   import { planPath, withPrerequisites, type ConceptNode } from '../lib/graph';
   import { duration } from '../lib/coaches';
-  import { midSentence } from '../lib/text';
   import { closestJobs, type JobTarget } from '../lib/closest';
   import { indexConcepts } from '../lib/graph';
+  import { enhanceSelect } from '../scripts/picker';
 
   interface PreviewData {
     nodes: ConceptNode[];
@@ -185,77 +226,61 @@ const counts = {
     roles: Record<string, { title: string; hire: string[] }>;
   }
 
-  // Send the ticket straight to the role page; without JavaScript it falls back to the roles list.
   const form = document.querySelector<HTMLFormElement>('[data-picker]')!;
+  const fromSelect = form.querySelector<HTMLSelectElement>('select[name="from"]')!;
+  const roleSelect = form.querySelector<HTMLSelectElement>('select[name="role"]')!;
+  const fromPicker = enhanceSelect(fromSelect, { search: 'Type your degree or job', labelId: 'ticket-from' });
+  const rolePicker = enhanceSelect(roleSelect, { search: 'Type a job, like data or backend', labelId: 'ticket-to' });
+
+  // Send the ticket straight to the role page; without JavaScript it falls back to the roles list.
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const data = new FormData(form);
-    const from = data.get('from');
-    location.href = `/roles/${data.get('role')}${from ? `?from=${from}` : ''}`;
+    if (!roleSelect.value) return rolePicker.open();
+    const from = fromSelect.value;
+    location.href = `/roles/${roleSelect.value}${from ? `?from=${from}` : ''}`;
   });
+  // Picking a job with no starting point yet: ask where they're starting from next.
+  roleSelect.addEventListener('change', () => { if (!fromSelect.value) setTimeout(() => fromPicker.button.classList.add('nudge'), 300); });
+  fromSelect.addEventListener('change', () => fromPicker.button.classList.remove('nudge'));
 
-  // Re-plan the preview whenever the ticket changes.
   const data: PreviewData = JSON.parse(document.getElementById('preview-data')!.textContent!);
   const titles = new Map(data.nodes.map((n) => [n.id, n.title]));
-  const kinds = new Map(data.nodes.map((n) => [n.id, n.kind ?? 'concept']));
-  const list = (xs: string[]) => (xs.length <= 1 ? xs[0] ?? '' : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text) e.textContent = text;
-    return e;
-  };
 
+  // Re-plan whenever the ticket changes: the ride plays the visitor's own route, and the map greys out what's behind them.
   function update() {
     const fd = new FormData(form);
-    const bg = data.backgrounds[String(fd.get('from') ?? '')];
-    const role = data.roles[String(fd.get('role'))];
     const from = String(fd.get('from') ?? '');
+    const bg = data.backgrounds[from];
+    const roleId = String(fd.get('role') ?? '');
+    const role = data.roles[roleId];
     document.dispatchEvent(
       new CustomEvent('terminus:ticket', {
-        detail: { known: [...withPrerequisites(data.nodes, bg?.knows ?? [])], from: from.startsWith('role:') ? from.slice(5) : undefined },
+        detail: { known: [...withPrerequisites(data.nodes, bg?.knows ?? [])], from: from.startsWith('role:') ? from.slice(5) : undefined, fromId: from || undefined },
       }),
     );
-    if (!role) return; // the preview waits for a job
-    const plan = planPath(data.nodes, role.hire, new Set(bg?.knows ?? []));
-    const shown = plan.steps.slice(0, 6);
-    document.querySelector('[data-preview-heading]')!.textContent = bg?.job
-      ? `From ${midSentence(bg.job)} to ${midSentence(role.title)}: what's new`
-      : bg
-        ? `Next stations for ${bg.phrase} going to ${midSentence(role.title)}`
-        : `First stations to ${midSentence(role.title)}, from the very beginning`;
-    document.querySelector('[data-preview-route]')!.replaceChildren(
-      ...shown.map((s) => {
-        const li = el('li', 'stop');
-        li.dataset.area = s.area;
-        li.dataset.kind = kinds.get(s.id);
-        li.dataset.state = s.waitingOn.length === 0 ? 'ready' : 'waiting';
-        const station = el('span', 'station');
-        station.setAttribute('aria-hidden', 'true');
-        const body = el('div', 'stop-body');
-        const head = el('div', 'stop-head');
-        const a = el('a', 'stop-title', s.title);
-        a.href = `/concepts/${s.id}`;
-        head.append(a);
-        const kind = kinds.get(s.id);
-        if (kind !== 'concept') head.append(el('span', 'kind', kind === 'tool' ? 'Tool' : 'Project'));
-        head.append(el('span', 'stop-hours', `${s.hours} h`));
-        const sub = el('p', 'stop-sub');
-        sub.append(
-          el('span', 'area-name', data.areas[s.area] ?? s.area),
-          `. ${s.waitingOn.length === 0 ? 'Ready to start.' : `After ${list(s.waitingOn.map((id) => titles.get(id) ?? id))}.`}`,
-        );
-        body.append(head, sub);
-        li.append(station, body);
-        return li;
+    if (!role) return; // the ride waits for a job
+    const known = new Set(bg?.knows ?? []);
+    const full = planPath(data.nodes, role.hire, new Set());
+    const mine = planPath(data.nodes, role.hire, known);
+    const left = new Set(mine.steps.map((s) => s.id));
+    const skipped = full.steps.filter((s) => !left.has(s.id)).slice(0, 3).map((s) => s.id);
+    const ahead = mine.steps.slice(0, bg ? 4 : 6).map((s) => s.id);
+    const show = full.steps.filter((s) => skipped.includes(s.id) || ahead.includes(s.id));
+    document.dispatchEvent(
+      new CustomEvent('terminus:ride', {
+        detail: {
+          from: bg?.job ?? (bg ? fromSelect.selectedOptions[0]?.textContent ?? '' : 'The very beginning'),
+          covers: bg?.job ? 'Your job covers it' : 'Your degree covers it',
+          to: role.title,
+          stops: show.map((s) => ({ title: titles.get(s.id) ?? s.title, hours: s.hours, skip: !left.has(s.id) })),
+          more: mine.steps.length - ahead.length,
+          behind: full.steps.length - mine.steps.length,
+          time: duration(mine.totalHours, 10),
+        },
       }),
     );
-    const more = plan.steps.length - shown.length;
-    document.querySelector('[data-preview-end]')!.textContent =
-      more > 0
-        ? `Then ${more} more ${more === 1 ? 'stop' : 'stops'} on the hiring list: ${duration(plan.totalHours, 10)} in all at 10 hours a week.`
-        : `That's the whole hiring list: ${duration(plan.totalHours, 10)} at 10 hours a week.`;
   }
+
   // Someone coming back: their saved progress, and the jobs it puts them nearest to.
   (async () => {
     let me: { background?: string; known?: string[]; done?: string[]; pace?: number } = {};
@@ -272,10 +297,14 @@ const counts = {
     const box = document.querySelector<HTMLElement>('[data-welcome]')!;
     const ol = box.querySelector('[data-welcome-list]')!;
     for (const j of near) {
-      const li = el('li');
-      const a = el('a', undefined, j.title);
+      const li = document.createElement('li');
+      const a = document.createElement('a');
       a.href = `/roles/${j.id}`;
-      li.append(a, el('span', 'quiet', j.stops === 0 ? ': its hiring list is all behind you.' : `: ${j.stops} ${j.stops === 1 ? 'stop' : 'stops'} left, ${duration(j.hours, me.pace ?? 10)}.`));
+      a.textContent = j.title;
+      const span = document.createElement('span');
+      span.className = 'quiet';
+      span.textContent = j.stops === 0 ? ': its hiring list is all behind you.' : `: ${j.stops} ${j.stops === 1 ? 'stop' : 'stops'} left, ${duration(j.hours, me.pace ?? 10)}.`;
+      li.append(a, span);
       ol.append(li);
     }
     box.hidden = false;
@@ -283,42 +312,55 @@ const counts = {
 
   form.addEventListener('change', update);
   update(); // the browser may have kept the last choices on a back navigation
+
+  // "How the route is worked out": the card follows whichever step is in the middle of the screen.
+  const explain = document.querySelector<HTMLElement>('[data-explain]');
+  if (explain) {
+    const setStep = (n: string) => { explain.dataset.step = n; };
+    explain.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => b.addEventListener('click', () => setStep(b.dataset.go!)));
+    const steps = [...explain.querySelectorAll<HTMLElement>('[data-step-text]')];
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) if (en.isIntersecting) setStep((en.target as HTMLElement).dataset.stepText!);
+      },
+      // On a phone the card sits over the top of the screen, so read the step lower down.
+      { rootMargin: matchMedia('(max-width: 960px)').matches ? '-68% 0px -14% 0px' : '-45% 0px -45% 0px' },
+    );
+    steps.forEach((el) => io.observe(el));
+  }
 </script>
 
 <style>
-  .intro { display: grid; grid-template-columns: 1.05fr 1fr; gap: 64px; align-items: start; padding-top: 24px; }
-  .intro-text { display: grid; gap: 22px; }
-  .intro h1 { max-width: 14ch; font-size: clamp(2.5rem, 6.4vw, 4.3rem); font-weight: 600; line-height: 1; }
-  .lede { font-size: 1.2rem; max-width: 52ch; color: var(--ink-2); }
-  .how-steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 10px; max-width: 52ch; }
-  .how-steps li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: baseline; }
-  .how-steps li::before {
-    content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
-    border: 3px solid var(--ink); font-family: var(--sign); font-weight: 750; font-size: 1rem; line-height: 1;
+  .intro { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 64px; align-items: start; padding-top: 18px; }
+  .intro-text { display: grid; gap: 22px; align-content: start; }
+  .intro h1 { max-width: 15ch; font-size: clamp(2.5rem, 6.2vw, 4.4rem); font-weight: 600; line-height: 1.04; }
+  /* The highlighter sweeps across "starts from you." once the heading is in. */
+  .mark {
+    background-image: linear-gradient(var(--yellow), var(--yellow)); background-repeat: no-repeat;
+    background-position: 0 62%; background-size: 100% 76%; padding: 0 0.06em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
   }
-  .how-steps strong { font-family: var(--sign); font-stretch: 88%; font-size: 1.15rem; }
-  .welcome { border: 3px solid var(--ink); padding: 12px 16px; background: var(--platform); max-width: 52ch; }
+  .mark { color: #111; }
+  :global(.motion) h1:not(.in) .mark { background-size: 0% 76%; color: var(--ink); }
+  :global(.motion) .mark { transition: background-size 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s, color 0.3s ease 0.7s; }
+
+  .lede { font-size: 1.2rem; max-width: 52ch; color: var(--ink-2); }
+  .intro-note { color: var(--ink-2); font-size: 0.97rem; max-width: 60ch; }
+  .welcome { border: 3px solid var(--ink); padding: 12px 16px; background: var(--paper); max-width: 52ch; animation: rise 0.4s ease; }
   .welcome[hidden] { display: none; }
   .welcome h2 { font-size: 1.15rem; }
   .welcome ol { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
   .welcome a { font-weight: 700; }
-  .intro-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 4px; }
-  .intro-actions .btn { font-size: 1.2rem; }
-  .intro-map { font-weight: 600; }
-
-  .plan { display: grid; grid-template-columns: 1.05fr 1fr; gap: 64px; align-items: start; margin-top: 96px; scroll-margin-top: 90px; }
-  .plan-ticket { display: grid; gap: 16px; align-content: start; }
-  .plan-lede { color: var(--ink-2); max-width: 52ch; }
-  .route-end:only-child, .route:empty + .route-end { color: var(--ink-2); }
+  .intro-ride { position: sticky; top: calc(var(--head-h, 64px) + 20px); }
 
   .ticket {
-    display: grid; grid-template-columns: 1fr auto;
-    border: 3px solid var(--ink); background: var(--paper); margin-top: 6px;
-    max-width: 600px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    border: 3px solid var(--ink); background: var(--paper); max-width: 620px;
+    box-shadow: 6px 6px 0 var(--ink);
   }
-  .ticket-main { padding: 14px 18px; display: grid; gap: 10px; }
-  .ticket-row { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; }
-  .ticket-label { font-family: var(--sign); font-stretch: 80%; font-weight: 750; font-size: 1.15rem; }
+  .ticket-main { padding: 14px 18px; display: grid; gap: 8px; min-width: 0; }
+  .ticket-row { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 10px; position: relative; }
+  .ticket-label { font-family: var(--sign); font-stretch: 80%; font-weight: 750; font-size: 1.2rem; }
   .ticket select {
     width: 100%; min-width: 0;
     font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.18rem; color: var(--ink); text-overflow: ellipsis;
@@ -326,7 +368,6 @@ const counts = {
     background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2374797f' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 6px center;
     appearance: none;
   }
-  /* The open list is drawn by the browser; give it our own colours so dark mode stays readable. */
   .ticket select option, .ticket select optgroup { font-family: var(--text); font-size: 1rem; color: var(--ink); background: var(--paper); }
   .ticket select optgroup { color: var(--ink-2); font-weight: 700; }
   .ticket select:invalid { color: var(--ink-3); }
@@ -334,42 +375,119 @@ const counts = {
     display: grid; align-content: center; justify-items: center; gap: 8px;
     padding: 14px 18px; border-left: 3px dashed var(--ink); background: var(--yellow);
   }
-  .ticket-stub .btn { font-size: 1.2rem; }
+  .ticket-stub .btn { font-size: 1.2rem; background: #111; color: var(--yellow); }
+  .ticket-stub .btn:hover { background: #333; }
   .ticket-small { font-size: 0.85rem; font-weight: 600; color: var(--on-yellow); }
 
-  .preview { padding: 20px 22px 18px; border: 3px solid var(--ink); background: var(--paper); }
-  .preview h2 {
-    font-size: 1.05rem; font-stretch: 88%; font-weight: 700; margin: -20px -22px 18px; padding: 8px 22px 6px;
-    background: #000; color: var(--yellow);
-  }
-
-  .roles { margin-top: 96px; scroll-margin-top: 90px; }
-  .how { margin-top: 80px; }
+  .roles { margin-top: 110px; scroll-margin-top: 90px; }
+  .roles-lede { max-width: 68ch; color: var(--ink-2); margin-top: 10px; }
   .exams-line { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--rule); }
-  .roles-lede { max-width: 66ch; color: var(--ink-2); margin-top: 10px; }
   .map-wide { display: block; }
   .roles .families { display: none; }
   @media (max-width: 860px) {
     .map-wide { display: none; }
     .roles .families { display: grid; }
   }
-  .families { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; margin-top: 18px; }
-  .families h3 { font-size: 1.1rem; color: var(--ink-2); padding-bottom: 6px; border-bottom: 6px solid var(--family, var(--ink)); margin-bottom: 10px; }
-  .families ul { border-left: 6px solid var(--family, var(--ink)); padding-left: 14px !important; }
-  .families ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
-  .families a { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.15rem; }
-  .one-tool { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--rule); max-width: 70ch; }
-  .how-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 64px; margin-top: 14px; }
-  .how-cols p { max-width: 70ch; }
-  @media (max-width: 860px) { .how-cols { grid-template-columns: 1fr; } }
+  .families { gap: 10px; margin-top: 18px; }
+  .families details { border: 2px solid var(--ink); background: var(--paper); border-left: 8px solid var(--family, var(--ink)); }
+  .families summary {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px 8px; cursor: pointer;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.25rem; list-style: none;
+  }
+  .families summary::-webkit-details-marker { display: none; }
+  .families summary::after { content: '+'; font-family: var(--text); font-size: 1.3rem; line-height: 1; transition: transform 0.25s ease; }
+  .families details[open] summary::after { transform: rotate(45deg); }
+  .families ul { list-style: none; padding: 0 14px 12px; margin: 0; display: grid; gap: 2px; }
+  .families details[open] ul { animation: rise 0.3s ease; }
+  .families a { display: block; padding: 6px 0; font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.15rem; border-top: 1px solid var(--rule); }
+
+  /* How the route is worked out */
+  .how { margin-top: 110px; }
+  .how-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 72px; margin-top: 26px; align-items: start; }
+  .how-steps { list-style: none; padding: 0; margin: 0; }
+  .how-steps li { min-height: 46vh; padding-bottom: 24px; opacity: 0.4; transition: opacity 0.35s ease; }
+  .how-steps li:last-child { min-height: 30vh; }
+  [data-step='1'] [data-step-text='1'], [data-step='2'] [data-step-text='2'], [data-step='3'] [data-step-text='3'] { opacity: 1; }
+  .step-head { display: flex; align-items: center; gap: 14px; border: 0; background: none; padding: 0; text-align: left; color: var(--ink); }
+  .step-n {
+    flex: none; display: grid; place-items: center; width: 46px; height: 46px; padding-top: 4px;
+    border: 3px solid var(--ink); border-radius: 50%; background: var(--paper);
+    font-family: var(--sign); font-weight: 750; font-size: 1.6rem; line-height: 1;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  [data-step='1'] [data-step-text='1'] .step-n, [data-step='2'] [data-step-text='2'] .step-n, [data-step='3'] [data-step-text='3'] .step-n { background: var(--yellow); color: #000; border-color: #000; }
+  .step-title { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.05; padding-top: 5px; }
+  .step-head:hover .step-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.14em; }
+  .how-steps p { margin: 10px 0 0 60px; max-width: 46ch; font-size: 1.1rem; color: var(--ink-2); }
+
+  .explain-card { position: sticky; top: calc(var(--head-h, 64px) + 24px); border: 3px solid var(--ink); background: var(--paper); }
+  .explain-head { background: #111; color: var(--yellow); padding: 10px 18px 7px; font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.25rem; line-height: 1.15; }
+  .explain-line { --row: 38px; position: relative; height: calc((var(--rows) + 2) * var(--row)); margin: 16px 20px 0; }
+  .explain-rail {
+    position: absolute; left: 17px; top: 19px; width: 4px; height: 0; background: var(--ink);
+    transition: height 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s;
+  }
+  [data-step='3'] .explain-rail { height: calc(var(--left) * var(--row) + 4px); }
+  .explain-row {
+    position: absolute; left: 0; right: 0; top: calc(var(--a) * var(--row)); height: var(--row);
+    display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+    transition: top 0.65s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.4s ease;
+  }
+  [data-step='3'] .explain-row:not([data-skip]) { top: calc(var(--o) * var(--row)); }
+  [data-step='3'] .explain-row[data-skip] { opacity: 0; }
+  .explain-dot {
+    justify-self: center; width: 18px; height: 18px; border: 4px solid var(--ink-3); border-radius: 4px; background: var(--paper);
+    transition: border-radius 0.4s ease, border-color 0.4s ease, background-color 0.4s ease;
+  }
+  [data-step='3'] .explain-dot { border-radius: 50%; border-color: var(--ink); }
+  .explain-title {
+    justify-self: start; max-width: 100%;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background-image: linear-gradient(var(--ink-3), var(--ink-3)); background-repeat: no-repeat; background-position: 0 52%; background-size: 0% 2px;
+    transition: background-size 0.45s ease, color 0.4s ease;
+  }
+  .explain-tag { font-size: 0.85rem; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+  .tag-cover { display: none; }
+  :is([data-step='2'], [data-step='3']) .explain-row[data-skip] .tag-h { display: none; }
+  :is([data-step='2'], [data-step='3']) .explain-row[data-skip] .tag-cover { display: inline; animation: rise 0.3s ease; }
+  :is([data-step='2'], [data-step='3']) .explain-row[data-skip] .explain-title { background-size: 100% 2px; color: var(--ink-3); }
+  :is([data-step='2'], [data-step='3']) .explain-row[data-skip] .explain-dot { background: var(--ink-3); }
+  .explain-end {
+    position: absolute; left: 0; top: calc(var(--left) * var(--row) + 6px); display: grid; grid-template-columns: 38px auto; gap: 10px; align-items: center;
+    opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease 0.55s, transform 0.4s ease 0.55s;
+  }
+  [data-step='3'] .explain-end { opacity: 1; transform: none; }
+  .explain-end .run-bar { justify-self: center; width: 12px; height: 32px; background: var(--yellow); border: 3px solid #000; }
+  .explain-board { background: var(--yellow); color: #000; border: 3px solid #000; outline: 1.5px solid #000; outline-offset: -7px; padding: 8px 14px 4px; font-family: var(--sign); font-weight: 650; font-size: 1.35rem; line-height: 1; text-transform: uppercase; }
+  .explain-note { padding: 4px 20px 16px; font-size: 0.95rem; font-weight: 600; }
+  .explain-note span { display: none; }
+  [data-step='1'] [data-note='1'], [data-step='2'] [data-note='2'], [data-step='3'] [data-note='3'] { display: inline; animation: rise 0.3s ease; }
+  .how-facts { margin-top: 28px; max-width: 80ch; font-size: 0.95rem; }
 
   @media (max-width: 960px) {
-    .intro, .plan { grid-template-columns: 1fr; gap: 40px; }
+    .intro { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .intro { padding-top: 8px; }
+    .intro-ride { position: static; }
+    .how-grid { grid-template-columns: minmax(0, 1fr); }
+    /* On a phone the card rides at the top while the steps scroll under it. */
+    .explain-card { order: -1; top: calc(var(--head-h, 56px) + 8px); z-index: 2; box-shadow: 0 10px 0 -2px var(--ground); }
+    .explain-line { --row: 25px; margin-top: 10px; }
+    .explain-row { grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; }
+    .explain-dot { width: 14px; height: 14px; border-width: 3px; }
+    .explain-rail { left: 13px; top: 12px; }
+    .explain-end { grid-template-columns: 30px auto; }
+    .explain-end .run-bar { height: 24px; width: 10px; }
+    .explain-board { font-size: 1.1rem; padding: 6px 10px 3px; }
+    .explain-title { font-size: 1rem; }
+    .explain-head { font-size: 1rem; padding: 8px 14px 5px; }
+    .explain-note { padding: 2px 14px 10px; font-size: 0.88rem; }
+    .how-steps li { min-height: 62vh; padding-top: 10vh; }
+    .how-steps li:last-child { min-height: 70vh; }
+    .how-steps p { margin-left: 0; }
   }
   @media (max-width: 560px) {
-    .ticket { grid-template-columns: 1fr; }
+    .ticket { grid-template-columns: minmax(0, 1fr); box-shadow: 4px 4px 0 var(--ink); }
     .ticket-stub { border-left: 0; border-top: 3px dashed var(--ink); grid-auto-flow: column; justify-content: space-between; }
-    .ticket select { font-size: 1.15rem; }
+    .explain-tag { display: none; }
   }
 </style>

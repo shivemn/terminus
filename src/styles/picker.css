@@ -1,0 +1,58 @@
+/*
+  The ticket's pickers: a button that opens a list you can type into. The
+  real <select> stays in the form underneath (see src/scripts/picker.ts).
+*/
+.picker-native {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.picker { position: relative; min-width: 0; }
+.picker-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; min-height: 44px; padding: 6px 6px 2px 2px;
+  border: 0; border-bottom: 2px solid var(--ink); background: transparent; color: var(--ink);
+  font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.22rem; line-height: 1.1; text-align: left;
+  transition: background-color 0.15s ease;
+}
+.picker-button::after {
+  content: ''; flex: none; width: 9px; height: 9px; margin: -6px 4px 0 0;
+  border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg);
+  transition: transform 0.25s ease;
+}
+.picker.is-open .picker-button::after { transform: translateY(4px) rotate(225deg); }
+.picker-button:hover { background: var(--platform); }
+.picker-button.is-empty .picker-value { color: var(--ink-3); font-weight: 600; }
+.picker-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker.just-picked .picker-value { animation: picked 0.5s ease; }
+@keyframes picked { 0% { background: var(--yellow); color: #000; } 100% { background: transparent; } }
+.picker-button.nudge { animation: nudge 1.6s ease 2; }
+@keyframes nudge { 0%, 100% { box-shadow: inset 0 -2px var(--ink); } 50% { box-shadow: inset 0 -6px var(--yellow); } }
+
+.picker-pop {
+  position: absolute; left: -64px; right: -8px; top: calc(100% + 8px); z-index: 20;
+  background: var(--paper); border: 3px solid var(--ink); box-shadow: 7px 7px 0 var(--yellow);
+  padding: 10px; animation: drop 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
+.picker-search {
+  width: 100%; height: 44px; padding: 0 12px; font: inherit; font-size: 1rem;
+  border: 2px solid var(--ink); border-radius: 0; background: var(--ground); color: var(--ink);
+}
+.picker-search::placeholder { color: var(--ink-3); }
+.picker-list { display: flex; flex-direction: column; list-style: none; margin: 8px 0 0; padding: 0; max-height: min(52vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.picker-group {
+  position: sticky; top: 0; z-index: 1; padding: 8px 10px 4px; background: var(--paper);
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3);
+}
+.picker-option {
+  padding: 8px 10px 7px 12px; border-left: 4px solid transparent; cursor: pointer;
+  font-weight: 600; line-height: 1.3;
+  transition: background-color 0.12s ease, padding-left 0.12s ease, border-color 0.12s ease;
+}
+.picker-option.is-active { background: var(--platform); border-left-color: var(--ink); padding-left: 16px; }
+.picker-option[aria-selected='true'] { border-left-color: var(--yellow); }
+.picker-option[aria-selected='true']::after { content: ' ✓'; color: var(--ink-3); }
+.picker-empty { padding: 10px; color: var(--ink-2); font-size: 0.95rem; }
+@media (max-width: 560px) {
+  .picker-pop { left: -62px; right: -2px; }
+}

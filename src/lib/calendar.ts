@@ -94,7 +94,7 @@ function fold(line: string): string {
 export interface CalendarInfo {
   /** e.g. "Data analyst". */
   goal: string;
-  /** Where each stop's page lives, e.g. "https://terminus.pages.dev/concepts/". */
+  /** Where each stop's page lives, e.g. "https://terminus-317.pages.dev/concepts/". */
   stopUrl: string;
   /** The route page, for the description. */
   routeUrl: string;

@@ -2,8 +2,9 @@
 // The home page network map. Lines are families, stations are the stops
 // most of a family's roles need, interchanges are stops lines share, and
 // every job is a terminus at the end of its line. Drawn at build time; a
-// small script lights up a role on hover and greys out what the ticket's
-// background covers.
+// small script lights up a role on hover, greys out what the ticket's
+// background covers, filters to one line, zooms and pans, and opens a card
+// for a job when you pick it.
 import { buildNetwork } from '../lib/network';
 import { content } from '../lib/site';
 
@@ -68,9 +69,29 @@ const nameAt = (id: string, xs: number[]) => {
   const crossings = [...xs, ...bridges.filter((b) => b.station === id).map((b) => b.x)].sort((a, b) => a - b);
   return crossings[0]! + 16;
 };
+
+// What the job card needs, inlined for the script.
+const cardData = {
+  lines: Object.fromEntries(net.lines.map((l) => [l.id, l.title])),
+  stations: net.stations.map((s) => ({ id: s.id, title: s.title, lines: s.lines, roles: s.roles })),
+  roles: Object.fromEntries(net.lines.flatMap((l) => l.roles.map((r) => [r.id, { title: r.title, line: l.id }]))),
+};
+const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
 ---
 
 <figure class="netmap" data-netmap>
+  <div class="netmap-chips" role="group" aria-label="Show one line">
+    <button type="button" class="line-chip" data-chip="" aria-pressed="true">
+      <span class="chip-swatch all" aria-hidden="true"></span>All lines <span class="chip-n num">{totalJobs}</span>
+    </button>
+    {net.lines.map((l) => (
+      <button type="button" class="line-chip" data-chip={l.id} data-line={l.id} aria-pressed="false">
+        <span class="chip-swatch" aria-hidden="true"></span>{l.title} <span class="chip-n num">{l.roles.length}</span>
+      </button>
+    ))}
+  </div>
+  <div class="netmap-view" data-view>
+  <div class="netmap-world" data-world>
   <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-labelledby="netmap-title netmap-desc">
     <title id="netmap-title">The Terminus network</title>
     <desc id="netmap-desc">
@@ -88,7 +109,7 @@ const nameAt = (id: string, xs: number[]) => {
 
     {/* The lines themselves, down to the last terminus. */}
     {net.lines.map((l, i) => (
-      <path class="line" data-line={l.id} d={`M${x(i)} 42V${lineEnd[i]}`} stroke-width={LINE_W} />
+      <path class="line trunk" data-line={l.id} d={`M${x(i)} 42V${lineEnd[i]}`} stroke-width={LINE_W} pathLength="1" style={`--n:${i}`} />
     ))}
 
     {/* Interchanges: a link across every line that calls there. */}
@@ -138,6 +159,33 @@ const nameAt = (id: string, xs: number[]) => {
       </a>
     ))}
   </svg>
+  </div>
+    <div class="netmap-zoom" data-nodrag>
+      <button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>
+      <span class="num" data-zoom-level aria-live="polite">100%</span>
+      <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+      <button type="button" data-zoom="fit" class="zoom-fit">Whole map</button>
+    </div>
+    <p class="netmap-hint" data-hint data-nodrag hidden>
+      Pick a job to see its line and where you can change. Zoom in with + to read it closer, then drag to move around.
+      <button type="button" data-hint-close>Got it</button>
+    </p>
+    <aside class="netmap-card" data-card data-nodrag tabindex="-1" aria-labelledby="netmap-card-board" aria-hidden="true">
+      <div class="card-top">
+        <span class="card-line" data-card-line></span>
+        <button type="button" class="card-close" data-card-close aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <p><span class="board card-board" id="netmap-card-board" data-card-title></span></p>
+      <h3>Its hiring list calls at</h3>
+      <ul class="card-stops" data-card-stops></ul>
+      <h3>Change here to</h3>
+      <ul class="card-changes" data-card-changes></ul>
+      <a class="btn card-go" data-card-go href="/roles" data-board-from="#netmap-card-board">See the route</a>
+    </aside>
+  </div>
+  <script type="application/json" id="netmap-data" set:html={JSON.stringify(cardData)} />
 
   <figcaption class="netmap-key">
     <span><svg viewBox="0 0 44 20" aria-hidden="true"><rect class="key-link" x="2" y="3" width="40" height="14" rx="7" /></svg>An interchange: a stop two or more lines share, where you can change careers.</span>
@@ -148,49 +196,322 @@ const nameAt = (id: string, xs: number[]) => {
 </figure>
 
 <script>
-  // Light up one job's stops while it's hovered or focused.
+  interface CardData {
+    lines: Record<string, string>;
+    stations: Array<{ id: string; title: string; lines: string[]; roles: string[] }>;
+    roles: Record<string, { title: string; line: string }>;
+  }
+
   const map = document.querySelector<HTMLElement>('[data-netmap]');
   if (map) {
+    const data: CardData = JSON.parse(document.getElementById('netmap-data')!.textContent!);
     const stations = [...map.querySelectorAll<SVGGElement>('.st')];
     const termini = [...map.querySelectorAll<SVGAElement>('.terminus')];
-    const lined = [...map.querySelectorAll<SVGElement>('[data-line]')];
+    const lined = [...map.querySelectorAll<SVGElement>('svg [data-line]')];
+    const chips = [...map.querySelectorAll<HTMLButtonElement>('[data-chip]')];
+    const view = map.querySelector<HTMLElement>('[data-view]')!;
+    const world = map.querySelector<HTMLElement>('[data-world]')!;
+    const level = map.querySelector<HTMLElement>('[data-zoom-level]')!;
+    const card = map.querySelector<HTMLElement>('[data-card]')!;
+    const hint = map.querySelector<HTMLElement>('[data-hint]')!;
+    const motion = () => document.documentElement.classList.contains('motion');
 
-    const focus = (role: string | null, line: string | null) => {
-      map.classList.toggle('focusing', role !== null);
-      for (const s of stations) s.classList.toggle('on', role !== null && (s.dataset.roles ?? '').split(' ').includes(role));
-      for (const t of termini) t.classList.toggle('on', t.dataset.role === role);
+    let known = new Set<string>();
+    let from: string | undefined;
+    let fromParam = '';
+    let filter: string | null = null;
+    let picked: string | null = null;
+    let pickedFrom: SVGAElement | null = null;
+
+    // Light up a job, a line, or nothing. Hover wins, then the open card, then the chosen line.
+    const light = (role: string | null, line: string | null) => {
+      map.classList.toggle('focusing', role !== null || line !== null);
+      for (const s of stations) {
+        const on = role !== null ? (s.dataset.roles ?? '').split(' ').includes(role) : line !== null && (s.dataset.lines ?? '').split(' ').includes(line);
+        s.classList.toggle('on', on);
+      }
+      for (const t of termini) t.classList.toggle('on', role !== null ? t.dataset.role === role : t.dataset.line === line);
       for (const el of lined) if (!el.closest('.terminus, .st')) el.classList.toggle('on', el.dataset.line === line);
     };
+    const rest = () => {
+      if (picked) light(picked, data.roles[picked]!.line);
+      else light(null, filter);
+    };
     for (const t of termini) {
-      const on = () => focus(t.dataset.role!, t.dataset.line!);
-      const off = () => focus(null, null);
+      const on = () => light(t.dataset.role!, t.dataset.line!);
       t.addEventListener('pointerenter', on);
-      t.addEventListener('pointerleave', off);
+      t.addEventListener('pointerleave', rest);
       t.addEventListener('focus', on);
-      t.addEventListener('blur', off);
+      t.addEventListener('blur', rest);
+    }
+
+    // Show one line.
+    for (const c of chips) {
+      c.addEventListener('click', () => {
+        filter = c.dataset.chip || null;
+        chips.forEach((x) => x.setAttribute('aria-pressed', String(x === c)));
+        closeCard(false);
+        rest();
+        if (filter && z > 1) {
+          const head = map.querySelector<SVGGElement>(`.line-head[data-line="${filter}"]`)!;
+          const box = head.getBoundingClientRect();
+          const v = view.getBoundingClientRect();
+          setView(z, px + (v.left + v.width / 2) - (box.left + box.width / 2), py);
+        }
+      });
+    }
+
+    // Zoom and drag. At 100% the whole map fits; zoom in to read it closer.
+    let z = 1;
+    let px = 0;
+    let py = 0;
+    const MIN = 1;
+    const MAX = 2.6;
+    const setView = (nz: number, nx: number, ny: number, animate = true) => {
+      z = Math.min(MAX, Math.max(MIN, nz));
+      const w = view.clientWidth;
+      const h = world.offsetHeight;
+      px = Math.min(0, Math.max(w - w * z, nx));
+      py = Math.min(0, Math.max(h - h * z, ny));
+      world.classList.toggle('settle', animate);
+      world.style.transform = `translate(${px}px, ${py}px) scale(${z})`;
+      level.textContent = `${Math.round(z * 100)}%`;
+      view.classList.toggle('zoomed', z > 1);
+    };
+    const zoomBy = (k: number) => {
+      const cx = view.clientWidth / 2;
+      const cy = Math.min(world.offsetHeight, innerHeight) / 2;
+      const nz = Math.min(MAX, Math.max(MIN, z * k));
+      const r = nz / z;
+      setView(nz, cx - (cx - px) * r, cy - (cy - py) * r);
+    };
+    map.querySelector('[data-zoom="in"]')!.addEventListener('click', () => zoomBy(1.35));
+    map.querySelector('[data-zoom="out"]')!.addEventListener('click', () => zoomBy(1 / 1.35));
+    map.querySelector('[data-zoom="fit"]')!.addEventListener('click', () => setView(1, 0, 0));
+    addEventListener('resize', () => setView(z, px, py, false));
+
+    let drag: { x: number; y: number; px: number; py: number; moved: boolean } | null = null;
+    let dragged = false;
+    view.addEventListener('pointerdown', (e) => {
+      if (z <= 1 || (e.target as Element).closest('[data-nodrag]') || e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, px, py, moved: false };
+    });
+    addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      if (!drag.moved) view.setPointerCapture?.(e.pointerId);
+      drag.moved = true;
+      view.classList.add('dragging');
+      setView(z, drag.px + dx, drag.py + dy, false);
+    });
+    const endDrag = () => {
+      if (drag?.moved) {
+        dragged = true;
+        setTimeout(() => (dragged = false), 0);
+      }
+      drag = null;
+      view.classList.remove('dragging');
+    };
+    addEventListener('pointerup', endDrag);
+    addEventListener('pointercancel', endDrag);
+
+    // Pick a job: its card slides in, with its stops and where it meets other lines.
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+    const list = (xs: string[]) => (xs.length <= 1 ? xs[0] ?? '' : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+    const openCard = (role: string, trigger: SVGAElement) => {
+      const r = data.roles[role]!;
+      picked = role;
+      pickedFrom = trigger;
+      card.dataset.line = r.line;
+      card.querySelector('[data-card-line]')!.textContent = `${data.lines[r.line]} line`;
+      card.querySelector('[data-card-title]')!.textContent = r.title;
+      const mine = data.stations.filter((s) => s.roles.includes(role));
+      const ul = card.querySelector('[data-card-stops]')!;
+      ul.replaceChildren(
+        ...mine.map((s) => {
+          const li = el('li', known.has(s.id) ? 'is-passed' : undefined, s.title);
+          if (known.has(s.id)) li.title = 'Already behind you';
+          return li;
+        }),
+      );
+      if (mine.length === 0) ul.append(el('li', 'is-none', 'None of the stations on this map; see the route for its stops.'));
+      const changes = new Map<string, string[]>();
+      for (const s of mine) for (const l of s.lines) if (l !== r.line) changes.set(l, [...(changes.get(l) ?? []), s.title]);
+      const cl = card.querySelector('[data-card-changes]')!;
+      cl.replaceChildren(
+        ...[...changes].map(([l, via]) => {
+          const li = el('li');
+          li.dataset.line = l;
+          li.append(el('strong', undefined, data.lines[l]), ` through ${list(via)}`);
+          return li;
+        }),
+      );
+      if (changes.size === 0) cl.append(el('li', 'is-none', 'None here: this job shares no stations with other lines on the map.'));
+      const go = card.querySelector<HTMLAnchorElement>('[data-card-go]')!;
+      go.href = `/roles/${role}${fromParam}`;
+      card.classList.add('open');
+      card.setAttribute('aria-hidden', 'false');
+      termini.forEach((t) => t.classList.toggle('picked', t === trigger));
+      rest();
+      card.focus({ preventScroll: true });
+      closeHint();
+    };
+    const closeCard = (refocus = true) => {
+      if (!picked) return;
+      picked = null;
+      card.classList.remove('open');
+      card.setAttribute('aria-hidden', 'true');
+      termini.forEach((t) => t.classList.remove('picked'));
+      rest();
+      if (refocus) pickedFrom?.focus({ preventScroll: true });
+    };
+    for (const t of termini) {
+      t.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || (e as MouseEvent).button !== 0) return;
+        e.preventDefault();
+        if (dragged) return;
+        if (picked === t.dataset.role) closeCard();
+        else openCard(t.dataset.role!, t);
+      });
+    }
+    card.querySelector('[data-card-close]')!.addEventListener('click', () => closeCard());
+    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(); });
+
+    // First visit: a short note on how the map works.
+    const HINT = 'terminus:map-hint';
+    const closeHint = () => {
+      hint.hidden = true;
+      try { localStorage.setItem(HINT, '1'); } catch {}
+    };
+    try { hint.hidden = localStorage.getItem(HINT) === '1'; } catch { hint.hidden = false; }
+    hint.querySelector('[data-hint-close]')!.addEventListener('click', closeHint);
+
+    // The lines draw themselves the first time the map comes into view.
+    if (motion() && 'IntersectionObserver' in window) {
+      map.classList.add('undrawn');
+      const io = new IntersectionObserver(([e]) => {
+        if (!e!.isIntersecting) return;
+        map.classList.remove('undrawn');
+        io.disconnect();
+      }, { threshold: 0.15 });
+      io.observe(view);
     }
 
     // The home page ticket says what's already behind you.
     document.addEventListener('terminus:ticket', (e) => {
-      const { known, from } = (e as CustomEvent<{ known: string[]; from?: string }>).detail;
-      const set = new Set(known);
-      for (const s of stations) s.classList.toggle('passed', set.has(s.dataset.id!));
+      const d = (e as CustomEvent<{ known: string[]; from?: string; fromId?: string }>).detail;
+      known = new Set(d.known);
+      from = d.from;
+      fromParam = d.fromId ? `?from=${encodeURIComponent(d.fromId)}` : '';
+      for (const s of stations) s.classList.toggle('passed', known.has(s.dataset.id!));
       for (const t of termini) t.classList.toggle('here', t.dataset.role === from);
+      if (picked && pickedFrom) openCard(picked, pickedFrom);
     });
   }
 </script>
 
 <style>
-  .netmap { margin: 22px 0 0; }
-  [data-line='software'] { --c: var(--l-software); }
-  [data-line='data'] { --c: var(--l-data); }
-  [data-line='infra'] { --c: var(--l-infra); }
-  [data-line='finance'] { --c: var(--l-finance); }
-  [data-line='product'] { --c: var(--l-product); }
-  [data-line='enterprise'] { --c: var(--l-enterprise); }
-  [data-line='hardware'] { --c: var(--l-hardware); }
-  [data-line='business'] { --c: var(--l-business); }
+  .netmap { margin: 18px 0 0; }
+  .netmap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .line-chip {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 12px 1px;
+    border: 2px solid var(--ink); background: var(--paper); color: var(--ink);
+    font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.08rem; line-height: 1;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .line-chip:hover { transform: translateY(-2px); }
+  .line-chip[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+  .chip-swatch { width: 16px; height: 6px; margin-top: -3px; background: var(--c); }
+  .chip-swatch.all { background: var(--yellow); }
+  .chip-n { font-family: var(--text); font-size: 0.82rem; font-weight: 700; margin-top: -2px; opacity: 0.8; }
+
+  .netmap-view {
+    position: relative; overflow: hidden; border: 3px solid var(--ink); background: var(--paper);
+    padding: 0; touch-action: pan-y;
+  }
+  .netmap-view.zoomed { cursor: grab; touch-action: none; }
+  .netmap-view.dragging { cursor: grabbing; user-select: none; }
+  .netmap-world { transform-origin: 0 0; padding: 6px 10px 10px; }
+  .netmap-world.settle { transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+  .netmap-zoom {
+    position: absolute; right: 12px; bottom: 12px; z-index: 3; display: flex; align-items: center;
+    border: 2px solid var(--ink); background: var(--paper); cursor: default;
+  }
+  .netmap-zoom button {
+    min-width: 40px; height: 40px; border: 0; background: var(--paper); color: var(--ink);
+    font-size: 1.3rem; line-height: 1; transition: background-color 0.15s;
+  }
+  .netmap-zoom button:hover { background: var(--yellow); color: #000; }
+  .netmap-zoom span { min-width: 52px; text-align: center; font-size: 0.85rem; font-weight: 700; border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); line-height: 40px; }
+  .netmap-zoom .zoom-fit { font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.05rem; padding: 3px 12px 0; border-left: 2px solid var(--ink); }
+
+  .netmap-hint {
+    position: absolute; left: 12px; bottom: 12px; z-index: 3; max-width: min(430px, calc(100% - 300px));
+    display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 14px;
+    background: #111; color: #f3f1ea; font-size: 0.92rem; line-height: 1.4; cursor: default;
+    animation: rise 0.4s ease 0.6s both;
+  }
+  .netmap-hint[hidden] { display: none; }
+  .netmap-hint button {
+    flex: none; border: 0; background: var(--yellow); color: #000; padding: 7px 12px 4px;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 750; font-size: 1.05rem;
+  }
+
+  .netmap-card {
+    position: absolute; top: 12px; right: 12px; z-index: 4; width: min(340px, calc(100% - 24px));
+    max-height: calc(100% - 24px); overflow-y: auto; cursor: default;
+    background: var(--paper); border: 3px solid var(--ink); box-shadow: 7px 7px 0 var(--yellow);
+    padding: 10px 16px 16px; display: grid; gap: 8px; align-content: start;
+    transform: translateX(calc(100% + 30px)); visibility: hidden;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0.35s;
+  }
+  .netmap-card.open { transform: none; visibility: visible; transition-delay: 0s; }
+  .netmap-card:focus { outline: none; }
+  .netmap-card:focus-visible { outline: 3px solid var(--focus); }
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card-line { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.05rem; color: var(--ink-2); }
+  .card-line::before { content: ''; width: 22px; height: 6px; background: var(--c); }
+  .card-close { width: 38px; height: 38px; border: 2px solid var(--ink); background: var(--paper); display: grid; place-items: center; padding: 0; }
+  .card-close:hover { background: var(--yellow); color: #000; }
+  .card-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5; }
+  .card-board { font-size: 1.45rem; }
+  .netmap-card h3 { font-size: 1.05rem; margin-top: 6px; }
+  .card-stops { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .card-stops :global(li) { font-size: 0.9rem; padding: 1px 8px; background: var(--platform); border: 1.5px solid var(--rule); }
+  .card-stops :global(li.is-passed) { color: var(--ink-3); text-decoration: line-through; }
+  .card-changes { list-style: none; padding: 0; margin: 0; display: grid; }
+  .card-changes :global(li) { padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 0.93rem; line-height: 1.35; color: var(--ink-2); }
+  .card-changes :global(li strong) { color: var(--ink); }
+  .card-changes :global(li[data-line])::before { content: ''; display: inline-block; width: 14px; height: 6px; margin-right: 8px; vertical-align: 2px; background: var(--c); }
+  .netmap-card :global(.is-none) { color: var(--ink-3) !important; font-size: 0.9rem; background: none !important; border: 0 !important; padding: 0 !important; }
+  .card-go { justify-self: start; margin-top: 8px; }
+
+  /* The lines draw themselves in, then the stations and jobs fade up. */
+  .netmap .trunk { stroke-dasharray: 1; stroke-dashoffset: 0; transition: stroke-dashoffset 1.1s cubic-bezier(0.4, 0, 0.2, 1) calc(var(--n) * 90ms), opacity 0.15s; }
+  .netmap.undrawn .trunk { stroke-dashoffset: 1; }
+  .netmap :is(.st, .terminus, .line-head, .bridge) { transition: opacity 0.4s ease 0.5s; }
+  .netmap.undrawn :is(.st, .terminus, .line-head, .bridge) { opacity: 0; }
+  .terminus.picked .bar { fill: var(--ink); stroke: var(--yellow); stroke-width: 3px; }
+  .terminus.picked text { text-decoration: underline; text-decoration-thickness: 2px; }
+  @media (max-width: 1100px) { .netmap-hint { max-width: calc(100% - 24px); bottom: 66px; } }
+  :global([data-line='software']) { --c: var(--l-software); }
+  :global([data-line='data']) { --c: var(--l-data); }
+  :global([data-line='infra']) { --c: var(--l-infra); }
+  :global([data-line='finance']) { --c: var(--l-finance); }
+  :global([data-line='product']) { --c: var(--l-product); }
+  :global([data-line='enterprise']) { --c: var(--l-enterprise); }
+  :global([data-line='hardware']) { --c: var(--l-hardware); }
+  :global([data-line='business']) { --c: var(--l-business); }
   .netmap svg { display: block; width: 100%; height: auto; overflow: visible; }
+  :where(.netmap-card, .netmap-chips) { --c: var(--ink); }
 
 
   .line-head rect { fill: var(--c); }
@@ -222,7 +543,7 @@ const nameAt = (id: string, xs: number[]) => {
   .st.inter.passed .inter-name { text-decoration: line-through; }
 
   /* One job lit up: everything else steps back. */
-  .netmap :is(.st, .terminus, .line-head, .line, .bridge) { transition: opacity 0.15s; }
+  .netmap:not(.undrawn) :is(.st, .terminus, .line-head, .line, .bridge) { transition: opacity 0.2s; }
   .netmap.focusing :is(.st:not(.on), .terminus:not(.on), .line-head:not(.on), svg > .line:not(.on), .bridge:not(.on)) { opacity: 0.22; }
   @media (prefers-reduced-motion: reduce) { .netmap :is(.st, .terminus, .line-head, .line, .bridge) { transition: none; } }
 

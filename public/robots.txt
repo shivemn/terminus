@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://terminus.pages.dev/sitemap-index.xml
+Sitemap: https://terminus-317.pages.dev/sitemap-index.xml
