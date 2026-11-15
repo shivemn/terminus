@@ -458,6 +458,11 @@
     - resource: exercism
       locator: "Go track"
       verified: true
+    - resource: go-by-example
+      locator: Every example, in order, running each one yourself
+      role: alternative
+      verified: true
+
 
 - id: cpp
   title: C++

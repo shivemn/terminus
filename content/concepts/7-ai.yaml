@@ -547,6 +547,11 @@
       locator: "The whole book"
       why: "Short, careful and free. Covers the history as well as the how."
       verified: true
+    - resource: paper-dylan
+      locator: 'The abstract and introduction, for how filtering and vector search pull in different directions'
+      role: deep-dive
+      verified: true
+
 
 - id: rag
   title: Retrieval-augmented generation

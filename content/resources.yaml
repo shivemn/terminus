@@ -3890,6 +3890,31 @@
   medium: read
   note: Free with a SkillsBuild account, and ends in an IBM digital credential. 3 to 10 hours.
 
+- id: lorig-notes
+  title: 'An Introduction to Applied Probability and Stochastic Processes: Open Lecture Notes'
+  author: Matthew Lorig, University of Washington
+  type: book
+  url: https://arxiv.org/abs/2611.10948
+  free: true
+  medium: read
+  note: About 320 pages for a first-year PhD course, with exercises and full solutions. CC BY-SA 4.0.
+
+- id: go-by-example
+  title: Go by Example
+  author: Mark McGranaghan and Eli Bendersky
+  type: site
+  url: https://gobyexample.com/
+  free: true
+  medium: practice
+
+- id: paper-dylan
+  title: Dynamic Graph Indexing for Label-Filtered Approximate Nearest Neighbor Search
+  author: Jiang et al. (SIGMOD 2027, arXiv 2611.12539)
+  type: site
+  url: https://arxiv.org/abs/2611.12539
+  free: true
+  medium: read
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

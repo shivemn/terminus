@@ -266,6 +266,11 @@
     - resource: mit-18s096
       locator: "Lectures 5 and 17, Stochastic Processes I and II"
       verified: true
+    - resource: lorig-notes
+      locator: 'Discrete time Markov chains and Continuous time Markov chains, then Brownian motion; solutions are at the back'
+      role: alternative
+      verified: true
+
 
 - id: stochastic-calculus
   title: Stochastic calculus
@@ -292,6 +297,11 @@
     - resource: mit-18s096
       locator: "Lectures 18 and 21: Itô calculus, stochastic differential equations"
       verified: true
+    - resource: lorig-notes
+      locator: 'Stochastic calculus, SDEs and PDEs, and Jump diffusions'
+      role: alternative
+      verified: true
+
 
 - id: real-analysis
   title: Real analysis
