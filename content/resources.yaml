@@ -3956,6 +3956,22 @@
   medium: watch
   note: Free with an AWS Skill Builder account; about 13 hours. Skill Builder's paid subscription isn't needed for it.
 
+- id: anthropic-context-engineering
+  title: Effective context engineering for AI agents
+  author: Anthropic
+  type: site
+  url: https://www.anthropic.com/research/effective-context-engineering-for-ai-agents
+  free: true
+  medium: read
+
+- id: gvisor-docs
+  title: What is gVisor?
+  author: The gVisor Authors (created by Google)
+  type: site
+  url: https://gvisor.dev/docs/
+  free: true
+  medium: read
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

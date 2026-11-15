@@ -733,6 +733,10 @@
       detail: Plan, call a tool, read the result, decide the next step, and stop conditions.
     - topic: Memory and state
       detail: Short-term conversation state, long-term memory in a store, and keeping context small.
+    - topic: Context engineering
+      detail: 'Choosing what goes into the context at each step, fetching information just in time instead of up front, and for long tasks: compacting old history into a summary, keeping notes outside the context, and giving sub-agents a clean context of their own.'
+    - topic: Sandboxed execution
+      detail: Running code an agent writes in a sandbox, a container with a user-space kernel such as gVisor or a small virtual machine, with only the files and network access the task needs.
     - topic: Model Context Protocol
       detail: Exposing tools and data to any agent through MCP servers, and using existing ones.
     - topic: Agent to agent (A2A)
@@ -785,6 +789,14 @@
       verified: true
     - resource: anthropic-long-running-agents
       locator: 'The whole post, especially Testing and Agent failure modes and solutions'
+      role: deep-dive
+      verified: true
+    - resource: anthropic-context-engineering
+      locator: 'The anatomy of effective context, then Context engineering for long-horizon tasks'
+      role: deep-dive
+      verified: true
+    - resource: gvisor-docs
+      locator: 'What is gVisor?, for how a sandbox sits between a program and the host'
       role: deep-dive
       verified: true
     - resource: otel-genai-semconv
