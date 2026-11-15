@@ -33,6 +33,8 @@ const kindLabel = concept.kind === 'tool' ? 'Tool' : concept.kind === 'project' 
 
 const detail = stopDetails(c).find((d) => d.id === concept.id)!;
 const shelf = c.toolGroups.find((g) => g.tools.includes(concept.id));
+// Project briefs in these areas usually need hosting or a database, so they point to free tiers.
+const HOSTED_AREAS = new Set(['programming', 'web', 'data', 'ai', 'infra', 'mobile', 'security', 'games', 'blockchain']);
 ---
 
 <Base title={concept.title} description={concept.summary}>
@@ -86,6 +88,12 @@ const shelf = c.toolGroups.find((g) => g.tools.includes(concept.id));
           <div>
             <h3>How to show it</h3>
             <p>{concept.brief.present}</p>
+            {HOSTED_AREAS.has(concept.area) && (
+              <p class="quiet free-tiers">
+                Need somewhere free to host it, a database, or another service?{' '}
+                <a href="https://free-for.dev/" rel="noopener">free-for.dev</a> lists free tiers for developers, kept up to date on GitHub. Check each service's current limits before you rely on it.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -167,6 +175,7 @@ const shelf = c.toolGroups.find((g) => g.tools.includes(concept.id));
 
   section { margin-top: 44px; }
   .brief { max-width: 66ch; margin-top: 12px; }
+  .free-tiers { font-size: 0.95rem; margin-top: 8px; }
   .covers { max-width: 72ch; margin-top: 10px; border-top: 3px solid var(--ink); }
   .section-note { margin-top: 2px; }
   h2 { margin-bottom: 8px; }
