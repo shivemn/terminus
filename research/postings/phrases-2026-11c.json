@@ -1,5 +1,5 @@
 {
-  "_note": "Version c, for the deep career paths checked against company job boards (November 2026). Same as version b, plus these patterns. These postings have no separate key-skills field, so only 'anywhere' patterns are used, on the title and full description. 'remove' drops version-b patterns that match boilerplate in these postings: 'valuation' and 'recruitment' come from company blurbs, '.NET' and 'node' from cluster terms, 'http' from links, 'regression' means performance regressions, and 'distributed system' is counted once, under distributed systems.",
+  "_note": "Version c, for the deep career paths (November 2026), whether checked on Naukri or on company job boards. Same as version b, plus these patterns. These postings have no separate key-skills field, so only 'anywhere' patterns are used, on the title and full description. 'remove' drops version-b patterns that match boilerplate in these postings: 'valuation' and 'recruitment' come from company blurbs, '.NET' and 'node' from cluster terms, 'http' from links, 'regression' means performance regressions, and 'distributed system' is counted once, under distributed systems.",
   "extends": "phrases-2026-11b.json",
   "add": {
     "distributed-systems": [
@@ -33,9 +33,11 @@
       "\\btorch\\b"
     ],
     "transformers": [
-      "\\bllms?\\b",
-      "large language models?",
-      "attention"
+      "transformer architecture",
+      "attention (mechanism|kernels?)",
+      "flash ?attention",
+      "\\bmoe\\b",
+      "mixture[- ]of[- ]experts"
     ],
     "os-processes-memory": [
       "\\blinux kernel\\b",
@@ -73,6 +75,19 @@
     ],
     "nodejs": [
       "node\\.?js"
+    ],
+    "ai-agents": [
+      "\\bai agents?\\b",
+      "\\bagentic\\b",
+      "\\blanggraph\\b",
+      "\\bcrewai\\b",
+      "\\bautogen\\b",
+      "multi-?agent",
+      "tool[- ]calling",
+      "function[- ]calling",
+      "\\bmcp\\b",
+      "model context protocol",
+      "agents sdk"
     ]
   },
   "remove": {

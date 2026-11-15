@@ -34,3 +34,5 @@ Some routes are second jobs, not first ones, and India has too few listings for 
 - **Labelling:** the route's region says "Global" and how senior the listings are, and its note says why India wasn't used.
 
 **AI inference engineer (52 listings, 19 companies).** Naukri, searched for "inference engineer" at every experience level, returned one real inference role (Persistent, 5–10 years); the rest were MLOps and general AI listings. The global sample has one listing in India (Sarvam, Bengaluru). 34 of the 52 are senior or staff.
+
+**Agentic AI engineer (26 listings, India, entry level).** Naukri, 0 years, searched for "agentic AI engineer" (7 pages) and "AI agent developer" (2 pages). All 159 listings were opened; 26 counted, because only those had agents in the title or key skills and were engineering roles. Sales, teaching, testing, senior and staff roles were left out. Version c of the phrase list adds an "AI agents" set (agentic, LangGraph, CrewAI, AutoGen, tool calling, MCP) and counts "LLM" under LLM APIs rather than under transformers.

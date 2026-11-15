@@ -660,7 +660,7 @@
     postings: 52
     region: Global, mostly senior (India has too few)
     collected: 2026-11
-    note: "Naukri had only one real inference role in India, so these 52 come from 19 AI companies' own job boards. Every listing asks for inference and serving; GPUs and CUDA (88%), transformers (78%), distributed systems (73%), Python (69%), monitoring (53%) and hardware architecture (50%) follow, with C++ (44%), PyTorch and Kubernetes (40% each) next. PyTorch stays on the hiring list because serving engines load and run PyTorch models. 34 of the 52 are senior or staff roles and only four are internships or junior, so treat this as a second job after ML or backend engineering."
+    note: "Naukri had only one real inference role in India, so these 52 come from 19 AI companies' own job boards. Every listing asks for inference and serving; GPUs and CUDA (88%), LLMs (78%), distributed systems (73%), Python (69%), monitoring (53%) and hardware architecture (50%) follow, with C++ (44%), PyTorch and Kubernetes (40% each) next. PyTorch stays on the hiring list because serving engines load and run PyTorch models, and transformers (35% name the architecture itself) because it's the stop that explains what an LLM computes. 34 of the 52 are senior or staff roles and only four are internships or junior, so treat this as a second job after ML or backend engineering."
   posting:
     source: "companies' own job boards (Greenhouse and Ashby)"
     listings: 52
@@ -677,7 +677,7 @@
     asks:
       - { skill: "Inference and serving engines", listings: 52 }
       - { skill: "GPUs, CUDA and kernels", listings: 46 }
-      - { skill: "Transformers and LLMs", listings: 41 }
+      - { skill: "LLMs", listings: 41 }
       - { skill: "Distributed systems", listings: 38 }
       - { skill: "Python", listings: 36 }
       - { skill: "Monitoring and tracing", listings: 28 }
@@ -685,6 +685,46 @@
       - { skill: "C++", listings: 23 }
       - { skill: "PyTorch", listings: 21 }
       - { skill: "Kubernetes", listings: 21 }
+
+- id: agentic-ai-engineer
+  title: Agentic AI engineer
+  family: data
+  summary: Builds AI agents that call tools, search documents and carry out multi-step tasks, and makes them reliable enough to ship.
+  search: agentic ai engineer
+  projects: {beginner: project-llm-app, intermediate: project-agent-system, advanced: project-mcp-servers}
+  tiers:
+    hire: [programming-basics, llm-basics, llm-apis, ai-agents, rag, rest-apis, sql, project-agent-system]
+    firstYear: [machine-learning, embeddings, testing-debugging, javascript, git, cloud-basics, observability, llm-evaluation]
+    extra: [transformers, backend-framework, fastapi, docker, ci-cd, ai-security]
+  evidence:
+    postings: 26
+    region: India, entry level
+    collected: 2026-11
+    note: "Every listing asks for agents; LLM APIs (84%), Python (80%), retrieval (73%), APIs (65%) and SQL (53%) follow, so they make the hiring list. Machine learning, testing and embeddings come next (42–46%). JavaScript (42%) is for agents with a web front end. Docker, CI/CD, FastAPI and backend frameworks each appear in about a quarter, so they're good to have. Evaluation isn't named often, but agents that aren't measured don't ship, so it's in the first year."
+  posting:
+    source: Naukri
+    listings: 26
+    collected: 2026-11
+    method: "Listings for \"agentic AI engineer\" and \"AI agent developer\" with 0 years' experience, India, read on 15 November 2026. Of 159 opened, 26 had agents in the title or key skills and were engineering roles; senior, sales and teaching roles were left out."
+    tagged: 26
+    titles: [Agentic AI engineer, AI agent developer, AI engineer, Generative AI developer, AI agent engineer intern, Junior agentic developer]
+    experience: "Most say 0–1 or 0–2 years; a few run to 0–5. Four are internships or trainee roles."
+    doing:
+      - Build agents that call tools and APIs to finish a task, often for a client's business process.
+      - Add retrieval so the agent answers from the company's own documents.
+      - Connect agents to databases and existing systems, usually in Python.
+      - Test and debug agents, and keep them working once they're in use.
+    asks:
+      - { skill: "AI agents and agent frameworks", listings: 26 }
+      - { skill: "LLM APIs and generative AI", listings: 22 }
+      - { skill: "Python", listings: 21 }
+      - { skill: "Retrieval (RAG)", listings: 19 }
+      - { skill: "APIs", listings: 17 }
+      - { skill: "SQL and databases", listings: 14 }
+      - { skill: "Machine learning", listings: 12 }
+      - { skill: "Testing and debugging", listings: 12 }
+      - { skill: "Embeddings and vector search", listings: 11 }
+      - { skill: "JavaScript", listings: 11 }
 
 - id: ai-engineer
   search: ai engineer
