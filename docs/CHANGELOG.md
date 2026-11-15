@@ -1,7 +1,18 @@
 # Changelog
 
+## 15 November 2026
+
+- **Stochastic processes, Go and vector search.** Lorig's open lecture notes on applied probability and stochastic processes (CC BY-SA, with solutions), Go by Example, and the SIGMOD 2027 DYLAN paper on filtered vector search.
+- **LLM serving gaps filled.** Prefix caching, chunked prefill, disaggregated prefill and decode, parallelism for serving, and benchmarking, each from vLLM's own docs.
+- **Free tiers for projects.** Software project briefs point to free-for.dev for free hosting and databases.
+- **AWS Skill Builder rechecked.** Its Cloud Practitioner Essentials course is free with an account and now sits under cloud basics.
+- **Checked and left out.** From the latest X posts: a 'PhD-level' cybersecurity dataset (anonymous, gated, its own page contradicts the post), a YouTube playlist list whose links are all empty, and diagram images with no source or licence.
+
 ## 14 November 2026
 
+- **New stops and topics.** Authentication and authorisation (OWASP, OAuth 2.0 Simplified, OktaDev, PortSwigger); embedded Linux (Bootlin, Buildroot, Yocto) and startup code and linker scripts for microcontrollers (Memfault), plus an Embedded Linux engineer title; A2A and a production checklist for agents (A2A docs, OWASP LLM06, Anthropic, OpenTelemetry); LoRA variants from their papers, correcting two errors in the post that suggested them.
+- **New resources.** Karpathy's training recipe, llm.c and nanochat (not nanoGPT, which its author has deprecated); four Claude Academy courses; two OpenAI Academy Builder Bootcamp recordings; two IBM SkillsBuild courses, noted as needing a free account.
+- **Light and dark mode button** at the top right of every page. It remembers your choice; without one, your system setting decides.
 - **23 new designs, 32 in all.** Fifteen apps (photo sharing, video on demand, music, video calls, file sync, collaborative editing, autocomplete, notifications, flash sales, hotel booking, maps, nearby search, fantasy sports, a code runner and recommendations) and eight building blocks (message queue, key-value store, distributed cache, web crawler, metrics, stock exchange, job scheduler and ad click counting). Each has the same diagram, flows and right-hand panel as the rebuilt nine. Every company claim was checked against that company's own post, paper or docs. The designs page now lists building blocks in their own section, and each design suggests up to eight related ones instead of listing all of them.
 - **Every design rebuilt around a diagram.** All nine designs now open with an architecture diagram you can follow request by request: pick a flow and each step lights up its path, and every box links to the stop that teaches it. The text is shorter. Numbers we assumed are labelled and sit next to real figures with their sources, and a panel on the right shows what each company published about its own system, from its own posts only. Every company link was opened before it went in, and the build refuses unchecked ones.
 - **24 more routes checked against job postings.** 644 Naukri listings, each opened and tagged, for routes from Salesforce developer to PLC engineer. Only listings matching the role count; thin markets were widened to 0–2 years and say so. Main changes: threat detection onto the hiring list for security engineers, monitoring for MLOps, accounting for risk analysts, APIs and cryptography for blockchain developers; a few tools that under 20% of listings name moved to the first year. Mainframe developer stays a draft because entry-level listings are too few. Method in research/postings/README.md.

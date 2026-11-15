@@ -3947,6 +3947,15 @@
   free: true
   medium: practice
 
+- id: aws-cloud-practitioner-essentials
+  title: AWS Cloud Practitioner Essentials
+  author: Amazon Web Services, AWS Skill Builder
+  type: course
+  url: https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials/8D79F3AVR7
+  free: true
+  medium: watch
+  note: Free with an AWS Skill Builder account; about 13 hours. Skill Builder's paid subscription isn't needed for it.
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

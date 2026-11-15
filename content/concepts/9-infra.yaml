@@ -168,6 +168,10 @@
       locator: 'The whole course: service and deployment models, then the Docker and Cloudant simulations'
       role: alternative
       verified: true
+    - resource: aws-cloud-practitioner-essentials
+      locator: 'The whole course: compute, global infrastructure, networking, storage, databases, security, pricing and the Well-Architected pillars'
+      role: alternative
+      verified: true
 
 
 - id: observability

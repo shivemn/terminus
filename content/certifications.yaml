@@ -72,7 +72,7 @@
   group: cloud
   cost: low
   price: "US$100"
-  why: "The entry AWS exam, open to people new to cloud. AWS is the cloud Indian job posts name most, so it's a sensible first paid certificate for cloud and support roles."
+  why: "The entry AWS exam, open to people new to cloud. AWS is the cloud Indian job posts name most, so it's a sensible first paid certificate for cloud and support roles. AWS's own Cloud Practitioner Essentials course on Skill Builder is free, and a good place to start."
   routes: [cloud-engineer, devops-engineer, support-engineer, solutions-architect, data-engineer]
 
 - id: azure-fundamentals
