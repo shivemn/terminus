@@ -3915,6 +3915,38 @@
   free: true
   medium: read
 
+- id: vllm-optimization
+  title: Optimization and Tuning
+  author: vLLM
+  type: site
+  url: https://docs.vllm.ai/en/latest/configuration/optimization/
+  free: true
+  medium: read
+
+- id: vllm-prefix-caching
+  title: Automatic Prefix Caching
+  author: vLLM
+  type: site
+  url: https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/
+  free: true
+  medium: read
+
+- id: vllm-disagg-prefill
+  title: Disaggregated Prefilling (experimental)
+  author: vLLM
+  type: site
+  url: https://docs.vllm.ai/en/latest/features/disagg_prefill/
+  free: true
+  medium: read
+
+- id: vllm-benchmarking
+  title: Benchmark Suites
+  author: vLLM
+  type: site
+  url: https://docs.vllm.ai/en/latest/benchmarking/
+  free: true
+  medium: practice
+
 - id: hf-agents-course
   title: AI Agents Course
   author: Hugging Face

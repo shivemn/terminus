@@ -864,8 +864,8 @@
 - id: inference-serving
   title: Serving LLMs fast and cheaply
   area: ai
-  summary: 'What happens when a model generates text, and how serving engines make it fast: the KV cache, batching, quantisation and engines like vLLM.'
-  hours: 15
+  summary: 'What happens when a model generates text, and how serving engines make it fast: the KV cache, batching, prefix caching, quantisation, parallelism and engines like vLLM.'
+  hours: 20
   requires: [transformers]
   recommends: [pytorch, parallel-computing, docker]
   covers:
@@ -883,6 +883,14 @@
       detail: Running weights in 8 or 4 bits (GPTQ, AWQ, GGUF), and measuring the quality cost.
     - topic: Faster decoding
       detail: Speculative decoding, distillation into smaller models, and FlashAttention.
+    - topic: Prefix caching and chunked prefill
+      detail: Reusing the KV cache when prompts share a start, such as a long system prompt, and splitting long prompts into chunks so they don't stall other users' tokens.
+    - topic: Disaggregated prefill and decode
+      detail: Running prefill and decode on separate instances so time to first token and time between tokens can be tuned apart, and tail latency controlled. It doesn't raise throughput.
+    - topic: Parallelism for serving
+      detail: Tensor parallelism inside a node, pipeline parallelism across nodes, expert parallelism for mixture-of-experts models, and data parallelism for more copies.
+    - topic: Benchmarking
+      detail: Measuring time to first token, time per output token, throughput and p99 latency under realistic load, before and after each change.
     - topic: Serving engines
       detail: vLLM, SGLang, TensorRT-LLM and llama.cpp/Ollama, and which fits which job.
     - topic: GPU memory sums
@@ -905,6 +913,22 @@
     - resource: vllm-docs
       locator: 'The quickstart: serve an open model behind an OpenAI-compatible API'
       role: primary
+      verified: true
+    - resource: vllm-optimization
+      locator: 'Chunked Prefill and Parallelism Strategies (TP, PP, EP, DP)'
+      role: deep-dive
+      verified: true
+    - resource: vllm-prefix-caching
+      locator: The whole page
+      role: deep-dive
+      verified: true
+    - resource: vllm-disagg-prefill
+      locator: 'Why disaggregated prefilling?'
+      role: deep-dive
+      verified: true
+    - resource: vllm-benchmarking
+      locator: 'The vllm bench CLI, then parameter sweeps'
+      role: deep-dive
       verified: true
 
 - id: ai-security
