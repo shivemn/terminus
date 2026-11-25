@@ -8,6 +8,11 @@
 import { buildNetwork } from '../lib/network';
 import { content } from '../lib/site';
 
+interface Props {
+  /** Its own row of line chips. Off when the page puts the chips above the map. */
+  chips?: boolean;
+}
+const { chips = true } = Astro.props;
 const c = content();
 const jobs = c.roles
   .filter((r) => r.kind !== 'exam' && !r.variantOf)
@@ -80,7 +85,7 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
 ---
 
 <figure class="netmap" data-netmap>
-  <div class="netmap-chips" role="group" aria-label="Show one line">
+  {chips && <div class="netmap-chips" role="group" aria-label="Show one line">
     <button type="button" class="line-chip" data-chip="" aria-pressed="true">
       <span class="chip-swatch all" aria-hidden="true"></span>All lines <span class="chip-n num">{totalJobs}</span>
     </button>
@@ -89,7 +94,7 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
         <span class="chip-swatch" aria-hidden="true"></span>{l.title} <span class="chip-n num">{l.roles.length}</span>
       </button>
     ))}
-  </div>
+  </div>}
   <div class="netmap-view" data-view>
   <div class="netmap-world" data-world>
   <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-labelledby="netmap-title netmap-desc">
@@ -182,7 +187,10 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
       <ul class="card-stops" data-card-stops></ul>
       <h3>Change here to</h3>
       <ul class="card-changes" data-card-changes></ul>
-      <a class="btn card-go" data-card-go href="/roles" data-board-from="#netmap-card-board">See the route</a>
+      <div class="card-actions">
+        <a class="btn card-go" data-card-go href="/roles" data-board-from="#netmap-card-board">See the route</a>
+        {!chips && <button type="button" class="text-button" data-card-show-line>Show its line</button>}
+      </div>
     </aside>
   </div>
   <script type="application/json" id="netmap-data" set:html={JSON.stringify(cardData)} />
@@ -190,7 +198,7 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
   <figcaption class="netmap-key">
     <span><svg viewBox="0 0 44 20" aria-hidden="true"><rect class="key-link" x="2" y="3" width="40" height="14" rx="7" /></svg>An interchange: a stop two or more lines share, where you can change careers.</span>
     <span><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="key-st" cx="10" cy="10" r="6" /></svg>A stop most of that line's jobs need.</span>
-    <span><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="key-passed" cx="10" cy="10" r="6" /></svg>Already behind you. Pick where you're starting from in the ticket below.</span>
+    <span><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="key-passed" cx="10" cy="10" r="6" /></svg>Already behind you. Pick where you're starting from in the ticket at the top.</span>
     <span><svg viewBox="0 0 20 22" aria-hidden="true"><rect class="key-bar" x="7" y="1" width="7" height="20" /></svg>A job. Pick one to plan your route there.</span>
   </figcaption>
 </figure>
@@ -266,7 +274,8 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
     let px = 0;
     let py = 0;
     const MIN = 1;
-    const MAX = 2.6;
+    // Phones need to zoom much further to read a map drawn for a wide screen.
+    const MAX = matchMedia('(max-width: 760px)').matches ? 6 : 2.6;
     const setView = (nz: number, nx: number, ny: number, animate = true) => {
       z = Math.min(MAX, Math.max(MIN, nz));
       const w = view.clientWidth;
@@ -382,6 +391,10 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
       });
     }
     card.querySelector('[data-card-close]')!.addEventListener('click', () => closeCard());
+    // On the home page the chips live outside the map: hand over to the line view.
+    card.querySelector('[data-card-show-line]')?.addEventListener('click', () => {
+      if (picked) document.dispatchEvent(new CustomEvent('terminus:show-line', { detail: { role: picked } }));
+    });
     card.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(); });
 
     // First visit: a short note on how the map works.
@@ -492,7 +505,7 @@ const totalJobs = net.lines.reduce((n, l) => n + l.roles.length, 0);
   .card-changes :global(li strong) { color: var(--ink); }
   .card-changes :global(li[data-line])::before { content: ''; display: inline-block; width: 14px; height: 6px; margin-right: 8px; vertical-align: 2px; background: var(--c); }
   .netmap-card :global(.is-none) { color: var(--ink-3) !important; font-size: 0.9rem; background: none !important; border: 0 !important; padding: 0 !important; }
-  .card-go { justify-self: start; margin-top: 8px; }
+  .card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 8px; }
 
   /* The lines draw themselves in, then the stations and jobs fade up. */
   .netmap .trunk { stroke-dasharray: 1; stroke-dashoffset: 0; transition: stroke-dashoffset 1.1s cubic-bezier(0.4, 0, 0.2, 1) calc(var(--n) * 90ms), opacity 0.15s; }

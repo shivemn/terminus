@@ -50,6 +50,8 @@
   --on-yellow: #000000;
   --focus: #0057d9;
   --warn: #9a5200;
+  /* The edge of a full-width dark band. */
+  --band-edge: #111111;
 
   --foundations: #6a4fd1;
   --programming: #0b8457;
@@ -100,6 +102,7 @@
     --rule: #343943;
     --focus: #7fb0ff;
     --warn: #f0b252;
+    --band-edge: #343943;
 
     --foundations: #a491f5;
     --programming: #3fcf96;
@@ -138,6 +141,7 @@
     --rule: #343943;
     --focus: #7fb0ff;
     --warn: #f0b252;
+    --band-edge: #343943;
 
     --foundations: #a491f5;
     --programming: #3fcf96;

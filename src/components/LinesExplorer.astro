@@ -1,0 +1,608 @@
+---
+// "Where could you go?" on the home page. One chip per line (a family of
+// jobs), a search box, and three views of the same jobs:
+//   - All lines on the map: the whole network, with its interchanges.
+//   - One line: its stops, where it meets other lines, its jobs, and a card
+//     for the job you pick. The card works out your own route from the ticket.
+//   - A list: every route by family, with whether it has been checked against
+//     real listings. Phones start here; searching always shows it.
+// Everything is drawn at build time. The script only switches views, fills the
+// card, and greys out what the ticket says is behind you.
+import NetworkMap from './NetworkMap.astro';
+import { buildNetwork } from '../lib/network';
+import { content, listOf } from '../lib/site';
+
+const c = content();
+const routes = c.roles.filter((r) => r.kind !== 'exam' && !r.variantOf);
+const net = buildNetwork(
+  c.concepts,
+  c.families,
+  routes.map((r) => ({ id: r.id, title: r.title, family: r.family, hire: r.tiers.hire })),
+);
+const title = (id: string) => c.concepts.find((x) => x.id === id)?.title ?? id;
+const byId = new Map(c.roles.map((r) => [r.id, r]));
+const shortName = new Map(net.lines.map((l) => [l.id, l.title]));
+const station = new Map(net.stations.map((s) => [s.id, s]));
+
+const lines = net.lines.map((l) => {
+  const stops = l.stations.map((id) => {
+    const s = station.get(id)!;
+    const others = s.lines.filter((x) => x !== l.id).map((x) => shortName.get(x)!);
+    return { id, title: s.title, inter: s.interchange, change: others.length ? `Change for ${listOf(others)}` : '' };
+  });
+  const meets = new Set(stops.flatMap((s) => station.get(s.id)!.lines.filter((x) => x !== l.id)));
+  const fam = c.families.find((f) => f.id === l.id)!;
+  return {
+    id: l.id,
+    short: l.title,
+    full: fam.title,
+    stops,
+    meets: meets.size,
+    jobs: l.roles.map((r) => ({ id: r.id, title: r.title })),
+    desc: `${l.roles.length} ${l.roles.length === 1 ? 'route' : 'routes'} on this line. Most of their hiring lists call at ${listOf(stops.map((s) => s.title))}.`,
+  };
+});
+
+// Job titles that build on a route (Python developer on Backend engineer), for search.
+const variants = c.roles.filter((r) => r.variantOf && r.kind !== 'exam');
+const list = lines.map((l) => ({
+  ...l,
+  rows: l.jobs.flatMap((j) => {
+    const r = byId.get(j.id)!;
+    return [
+      { id: j.id, title: j.title, route: true, checked: !!r.evidence },
+      ...variants.filter((v) => v.variantOf === j.id).map((v) => ({ id: v.id, title: v.title, route: false, checked: !!r.evidence, of: j.title })),
+    ];
+  }),
+}));
+
+const cardData = {
+  lines: Object.fromEntries(lines.map((l) => [l.id, { meets: l.meets, first: l.jobs[0]!.id }])),
+  roles: Object.fromEntries(
+    lines.flatMap((l) =>
+      l.jobs.map((j) => {
+        const r = byId.get(j.id)!;
+        return [j.id, { t: r.title, s: r.summary, l: l.id, c: r.evidence?.postings ?? 0, h: r.tiers.hire.map((id) => [id, title(id)]) }];
+      }),
+    ),
+  ),
+};
+const total = lines.reduce((n, l) => n + l.jobs.length, 0);
+---
+
+<div class="lx" data-lx>
+  <div class="lx-tools" data-reveal>
+    <label class="lx-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+      <span class="visually-hidden">Find a job</span>
+      <input type="search" placeholder="Find a job, like analyst or engineer" autocomplete="off" data-lx-q />
+    </label>
+    <div class="lx-switch" role="group" aria-label="View">
+      <button type="button" data-lx-view="map" aria-pressed="true">Map</button>
+      <button type="button" data-lx-view="list" aria-pressed="false">List</button>
+    </div>
+  </div>
+
+  <div class="lx-chips" role="group" aria-label="Lines" data-reveal style="--delay: 0.06s">
+    <button type="button" class="lx-chip" data-lx-chip="" aria-pressed="true">
+      <span class="lx-swatch all" aria-hidden="true"></span>All lines <span class="lx-n num">{total}</span>
+    </button>
+    {lines.map((l) => (
+      <button type="button" class="lx-chip" data-lx-chip={l.id} data-line={l.id} aria-pressed="false">
+        <span class="lx-swatch" aria-hidden="true"></span>{l.short} <span class="lx-n num">{l.jobs.length}</span>
+      </button>
+    ))}
+  </div>
+
+  <div class="lx-map" data-lx-pane="map" data-reveal style="--delay: 0.1s">
+    <NetworkMap chips={false} />
+  </div>
+
+  <div class="lx-line" data-lx-pane="line" hidden>
+    {lines.map((l) => (
+      <div class="lp" data-lp={l.id} data-line={l.id} hidden>
+        <div class="lp-left">
+          <p class="lp-kicker">Selected line</p>
+          <h3 class="lp-title"><span class="lp-bar" aria-hidden="true"></span>{l.full}</h3>
+          <p class="lp-desc">{l.desc}</p>
+          <ul class="lp-key">
+            <li><span class="k-inter" aria-hidden="true"></span>Shared with another line</li>
+            <li><span class="k-stop" aria-hidden="true"></span>On most of its hiring lists</li>
+            <li><span class="k-passed" aria-hidden="true"></span>Behind you, going by your ticket</li>
+          </ul>
+        </div>
+        <div class="lp-mid">
+          <div class="lp-stops">
+            <p class="lp-kicker">Stops most jobs call at</p>
+            <ol class="lp-rail">
+              {l.stops.map((s, i) => (
+                <li class:list={['lp-st', { inter: s.inter }]} data-stop={s.id} style={`--i:${i}`}>
+                  <span class="lp-node" aria-hidden="true"></span>
+                  <span><span class="lp-name">{s.title}</span>{s.change && <span class="lp-change">{s.change}</span>}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div class="lp-jobs">
+            <p class="lp-kicker">{l.jobs.length} {l.jobs.length === 1 ? 'job' : 'jobs'} at the end of the line</p>
+            <ul>
+              {l.jobs.map((j, i) => (
+                <li style={`--i:${i}`}>
+                  <button type="button" class="lp-job" data-lx-role={j.id} aria-pressed="false">
+                    <span class="lp-jt">{j.title}</span><span class="lp-ja" aria-hidden="true">&rarr;</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    ))}
+    <button type="button" class="lx-back" data-lx-close tabindex="-1" aria-label="Close the job card"></button>
+    <aside class="lx-card" data-lx-card tabindex="-1" aria-labelledby="lx-board">
+      <div class="lx-card-top">
+        <p class="lp-kicker">Where the line ends</p>
+        <button type="button" class="lx-x" data-lx-close aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <p><span class="board lx-board" id="lx-board" data-lx-title></span></p>
+      <p class="lx-sum" data-lx-sum></p>
+      <dl class="lx-facts" data-lx-facts></dl>
+      <p class="lp-kicker">Its hiring list</p>
+      <ul class="lx-hire" data-lx-hire></ul>
+      <a class="lx-go" data-lx-go href="/roles" data-board-from="#lx-board">Plan my route <span aria-hidden="true">&rarr;</span></a>
+      <p class="lx-note faint" data-lx-note>Pick where you're starting from in the ticket at the top to see your own route.</p>
+    </aside>
+  </div>
+
+  <div class="lx-list" data-lx-pane="list" hidden>
+    {list.map((l, i) => (
+      <details class="lx-fam" data-lx-fam={l.id} data-line={l.id} open={i === 0}>
+        <summary><span>{l.short}</span> <span class="lx-n num">{l.jobs.length} {l.jobs.length === 1 ? 'job' : 'jobs'}</span></summary>
+        <ul>
+          {l.rows.map((r) => (
+            <li data-lx-row data-title={r.title.toLowerCase()} data-variant={r.route ? undefined : ''} hidden={!r.route}>
+              <a href={`/roles/${r.id}`} data-lx-open={r.route ? r.id : undefined}>
+                <span>{r.title}{!r.route && <span class="faint lx-of">, on the {r.of} route</span>}</span>
+                <span class:list={['lx-tag', { ok: r.checked }]}>{r.checked ? 'Checked' : 'Draft'}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ))}
+    <p class="lx-none" data-lx-none hidden>No job matches that yet. Try a shorter word, like "analyst".</p>
+    <p class="faint lx-legend">"Checked" means the route was compared with real entry-level listings. "Draft" means it hasn't been yet.</p>
+  </div>
+  <script type="application/json" id="lx-data" set:html={JSON.stringify(cardData)} />
+</div>
+
+<script is:inline>
+  // Phones open on the list. Set before the first paint so nothing jumps.
+  (() => {
+    const lx = document.currentScript.previousElementSibling;
+    if (!matchMedia('(max-width: 760px)').matches) return;
+    lx.querySelector('[data-lx-pane="map"]').hidden = true;
+    lx.querySelector('[data-lx-pane="list"]').hidden = false;
+    lx.querySelectorAll('[data-lx-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lxView === 'list')));
+  })();
+</script>
+
+<script>
+  import { planPath, type ConceptNode } from '../lib/graph';
+  import { duration } from '../lib/coaches';
+  import { midSentence } from '../lib/text';
+
+  interface LxData {
+    lines: Record<string, { meets: number; first: string }>;
+    roles: Record<string, { t: string; s: string; l: string; c: number; h: [string, string][] }>;
+  }
+
+  const lx = document.querySelector<HTMLElement>('[data-lx]');
+  if (lx) {
+    const data: LxData = JSON.parse(document.getElementById('lx-data')!.textContent!);
+    const preview = document.getElementById('preview-data');
+    const nodes: ConceptNode[] = preview ? JSON.parse(preview.textContent!).nodes : [];
+    const $ = <T extends Element = HTMLElement>(s: string) => lx.querySelector<T>(s)!;
+    const $$ = <T extends Element = HTMLElement>(s: string) => [...lx.querySelectorAll<T>(s)];
+    const panes = { map: $('[data-lx-pane="map"]'), line: $('[data-lx-pane="line"]'), list: $('[data-lx-pane="list"]') };
+    const chips = $$<HTMLButtonElement>('[data-lx-chip]');
+    const views = $$<HTMLButtonElement>('[data-lx-view]');
+    const q = $<HTMLInputElement>('[data-lx-q]');
+    const card = $('[data-lx-card]');
+    const phone = matchMedia('(max-width: 760px)');
+    const motion = () => document.documentElement.classList.contains('motion');
+
+    let view: 'map' | 'list' = phone.matches ? 'list' : 'map';
+    let line: string | null = null;
+    let role: string | null = null;
+    let known = new Set<string>();
+    let fromId = '';
+    let fromLabel = '';
+    let wanted = '';
+    let flip = false;
+
+    function render() {
+      const query = q.value.trim().toLowerCase();
+      const showList = view === 'list' || query !== '';
+      panes.map.hidden = showList || line !== null;
+      panes.line.hidden = showList || line === null;
+      panes.list.hidden = !showList;
+      chips.forEach((c) => c.setAttribute('aria-pressed', String((c.dataset.lxChip || null) === line)));
+      views.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lxView === view)));
+      if (!panes.line.hidden) $$('[data-lp]').forEach((p) => (p.hidden = p.dataset.lp !== line));
+      if (showList) {
+        let shown = 0;
+        for (const fam of $$<HTMLDetailsElement>('[data-lx-fam]')) {
+          let n = 0;
+          for (const row of fam.querySelectorAll<HTMLElement>('[data-lx-row]')) {
+            const hit = query ? row.dataset.title!.includes(query) : !('variant' in row.dataset);
+            row.hidden = !hit;
+            if (hit) n++;
+          }
+          fam.hidden = n === 0 || (!query && line !== null && fam.dataset.lxFam !== line);
+          if (query) fam.open = true;
+          if (!fam.hidden) shown += n;
+        }
+        $('[data-lx-none]').hidden = shown > 0;
+      }
+      if (!panes.map.hidden) dispatchEvent(new Event('resize'));
+    }
+
+    // The line draws itself each time it's picked.
+    function draw(id: string) {
+      const p = $(`[data-lp="${id}"]`);
+      p.classList.remove('drawn');
+      if (!motion()) return p.classList.add('drawn');
+      void p.offsetWidth;
+      requestAnimationFrame(() => p.classList.add('drawn'));
+    }
+
+    function pickLine(id: string | null, r?: string) {
+      line = id;
+      if (id) {
+        const roles = data.roles;
+        role = r ?? (wanted && roles[wanted]?.l === id ? wanted : data.lines[id]!.first);
+        render();
+        if (!panes.line.hidden) draw(id);
+        fill(false);
+      } else {
+        role = null;
+        closeSheet(false);
+        render();
+      }
+    }
+
+    const fmt = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    function fill(animate = true) {
+      if (!role) return;
+      const r = data.roles[role]!;
+      $$<HTMLButtonElement>('[data-lx-role]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lxRole === role)));
+      $('[data-lx-title]').textContent = r.t;
+      $('[data-lx-sum]').textContent = r.s;
+      const facts: [string, string][] = [];
+      const hire = r.h.map(([id]) => id);
+      if (nodes.length) {
+        const full = planPath(nodes, hire, new Set());
+        if (known.size) {
+          const mine = planPath(nodes, hire, known);
+          const behind = full.steps.length - mine.steps.length;
+          facts.push([`From ${midSentence(fromLabel)}`, behind ? `${fmt(behind, 'stop', 'stops')} behind you` : 'Nothing behind you yet']);
+          facts.push(['The rest at 10 hours a week', mine.steps.length ? `${fmt(mine.steps.length, 'stop', 'stops')}, ${duration(mine.totalHours, 10)}` : 'Nothing left']);
+        } else {
+          facts.push(['From the very beginning', fmt(full.steps.length, 'stop', 'stops')]);
+          facts.push(['At 10 hours a week', duration(full.totalHours, 10)]);
+        }
+      }
+      facts.push(['Checked against', r.c ? `${r.c} listings` : 'Not yet (draft)']);
+      const meets = data.lines[r.l]!.meets;
+      facts.push(['This line meets', meets ? fmt(meets, 'other line', 'other lines') : 'no other lines']);
+      $('[data-lx-facts]').replaceChildren(
+        ...facts.map(([k, v]) => {
+          const row = document.createElement('div');
+          const dt = document.createElement('dt');
+          const dd = document.createElement('dd');
+          dt.textContent = k;
+          dd.textContent = v;
+          row.append(dt, dd);
+          return row;
+        }),
+      );
+      $('[data-lx-hire]').replaceChildren(
+        ...r.h.map(([id, t]) => {
+          const li = document.createElement('li');
+          li.textContent = t;
+          if (known.has(id)) {
+            li.className = 'passed';
+            li.title = 'Already behind you';
+          }
+          return li;
+        }),
+      );
+      $<HTMLAnchorElement>('[data-lx-go]').href = `/roles/${role}${fromId ? `?from=${encodeURIComponent(fromId)}` : ''}`;
+      $('[data-lx-note]').hidden = known.size > 0;
+      for (const st of $$(`[data-lp] [data-stop]`)) st.classList.toggle('passed', known.has(st.dataset.stop!));
+      if (animate && motion()) {
+        flip = !flip;
+        card.classList.remove('swap-a', 'swap-b');
+        void card.offsetWidth;
+        card.classList.add(flip ? 'swap-a' : 'swap-b');
+      }
+    }
+
+    // On a phone the card is a sheet that slides up from the bottom.
+    let opener: HTMLElement | null = null;
+    function openSheet(from: HTMLElement | null) {
+      if (!phone.matches) return;
+      opener = from;
+      panes.line.classList.add('sheet-open');
+      document.documentElement.classList.add('lx-locked');
+      card.focus({ preventScroll: true });
+    }
+    function closeSheet(refocus = true) {
+      if (!panes.line.classList.contains('sheet-open')) return;
+      panes.line.classList.remove('sheet-open');
+      document.documentElement.classList.remove('lx-locked');
+      if (refocus) opener?.focus({ preventScroll: true });
+    }
+
+    chips.forEach((c) => c.addEventListener('click', () => {
+      pickLine(c.dataset.lxChip || null);
+      if (line && phone.matches && view === 'list' && !q.value) {
+        // On a phone a chip in the list view opens that family and shows its jobs.
+        const fam = $<HTMLDetailsElement>(`[data-lx-fam="${line}"]`);
+        fam.open = true;
+      }
+    }));
+    views.forEach((b) => b.addEventListener('click', () => {
+      view = b.dataset.lxView as 'map' | 'list';
+      q.value = '';
+      render();
+      if (line && !panes.line.hidden) draw(line);
+    }));
+    q.addEventListener('input', render);
+    $$<HTMLButtonElement>('[data-lx-role]').forEach((b) => b.addEventListener('click', () => {
+      role = b.dataset.lxRole!;
+      fill();
+      openSheet(b);
+    }));
+    $$<HTMLButtonElement>('[data-lx-close]').forEach((b) => b.addEventListener('click', () => closeSheet()));
+    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+    phone.addEventListener('change', () => { if (!phone.matches) closeSheet(false); });
+
+    // A route in the list opens its line, with its card. Variants and modified clicks go to the page.
+    $$<HTMLAnchorElement>('[data-lx-open]').forEach((a) => a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      const id = a.dataset.lxOpen!;
+      view = 'map';
+      q.value = '';
+      pickLine(data.roles[id]!.l, id);
+      lx.scrollIntoView({ behavior: motion() ? 'smooth' : 'auto', block: 'start' });
+      openSheet(a);
+    }));
+
+    // "Show its line" on the map's job card.
+    document.addEventListener('terminus:show-line', (e) => {
+      const id = (e as CustomEvent<{ role: string }>).detail.role;
+      if (data.roles[id]) pickLine(data.roles[id]!.l, id);
+    });
+
+    // The ticket says where you're starting and where you want to go.
+    document.addEventListener('terminus:ticket', (e) => {
+      const d = (e as CustomEvent<{ known: string[]; fromId?: string; fromLabel?: string; to?: string }>).detail;
+      known = new Set(d.known);
+      fromId = d.fromId ?? '';
+      fromLabel = d.fromLabel ?? '';
+      wanted = d.to ?? '';
+      fill(false);
+      for (const st of $$(`[data-lp] [data-stop]`)) st.classList.toggle('passed', known.has(st.dataset.stop!));
+    });
+
+    render();
+  }
+</script>
+
+<style>
+  .lx { margin-top: 30px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .lx-tools { display: flex; flex-wrap: wrap; gap: 10px; }
+  .lx-search {
+    flex: 1 1 280px; display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 14px;
+    border: 2px solid var(--ink); background: var(--paper);
+  }
+  .lx-search svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+  .lx-search input { flex: 1; min-width: 0; height: 46px; border: 0; background: none; font: inherit; color: var(--ink); outline: none; }
+  .lx-search:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .lx-switch { display: flex; border: 2px solid var(--ink); }
+  .lx-switch button {
+    min-width: 76px; min-height: 50px; padding: 4px 16px 0; border: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sign); font-stretch: 85%; font-weight: 720; font-size: 1.2rem; transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .lx-switch button + button { border-left: 2px solid var(--ink); }
+  .lx-switch button[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+
+  .lx-chips {
+    display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 10px;
+    scrollbar-width: thin;
+  }
+  .lx-chip {
+    flex: none; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 9px; min-height: 48px; padding: 5px 16px 1px;
+    border: 2px solid var(--ink); background: var(--paper); color: var(--ink);
+    font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.18rem; line-height: 1;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .lx-chip:hover { transform: translateY(-2px); }
+  .lx-chip[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+  .lx-swatch { width: 6px; height: 22px; margin-top: -4px; background: var(--c); }
+  .lx-swatch.all { background: var(--yellow); }
+  .lx-n { font-family: var(--text); font-size: 0.82rem; font-weight: 700; margin-top: -2px; opacity: 0.8; }
+  .lx-map { margin-top: 6px; }
+  .lx-map :global(.netmap) { margin-top: 0; }
+
+  /* One line: who it is, its stops and jobs, and the card for the job you pick. */
+  .lx-line {
+    position: relative; display: grid; grid-template-columns: minmax(0, 270px) minmax(0, 1fr) minmax(0, 340px);
+    margin-top: 6px; min-height: 520px; border: 3px solid var(--ink); background: var(--paper); box-shadow: 8px 8px 0 var(--ink);
+    animation: rise 0.3s ease;
+  }
+  .lx-line[hidden] { display: none; }
+  .lp:not([hidden]) { display: contents; }
+  .lp-kicker { font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+  .lp-left { padding: 26px 24px; border-right: 1.5px solid var(--ink); }
+  .lp-title { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; font-size: clamp(1.9rem, 2.8vw, 2.5rem); font-weight: 700; line-height: 0.98; }
+  .lp-bar { flex: none; width: 8px; height: 0.9em; margin-top: 0.02em; background: var(--c); }
+  .lp-desc { margin-top: 12px; font-size: 0.95rem; color: var(--ink-2); }
+  .lp-key { list-style: none; padding: 14px 0 0; margin: 18px 0 0; border-top: 1.5px solid var(--rule); display: grid; gap: 8px; font-size: 0.88rem; color: var(--ink-2); }
+  .lp-key li { display: flex; align-items: center; gap: 10px; }
+  .lp-key span { flex: none; width: 16px; height: 16px; margin: 0 5px; border: 3px solid var(--c); border-radius: 50%; }
+  .lp-key .k-inter { width: 26px; margin: 0; border-color: var(--ink); border-radius: 8px; }
+  .lp-key .k-passed { border-color: var(--ink-3); background: var(--ink-3); }
+
+  .lp-mid {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px 34px; align-items: stretch;
+    padding: 28px 26px; background-color: var(--paper);
+    background-image: linear-gradient(color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .lp-stops { position: relative; }
+  .lp-rail { position: relative; list-style: none; padding: 0; margin: 14px 0 0; }
+  /* The line itself, and the branch across to the jobs. */
+  .lp-rail::before {
+    content: ''; position: absolute; left: 13px; top: 10px; bottom: 30px; width: 6px; background: var(--c);
+    transform-origin: top; transform: scaleY(0); transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .lp-rail::after {
+    content: ''; position: absolute; left: 13px; right: -36px; bottom: 24px; height: 6px; background: var(--c);
+    transform-origin: left; transform: scaleX(0); transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 0.7s;
+  }
+  .drawn .lp-rail::before { transform: scaleY(1); }
+  .drawn .lp-rail::after { transform: scaleX(1); }
+  .lp-st {
+    position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: start; padding-bottom: 22px;
+    opacity: 0; transform: translateY(12px); transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(0.15s + var(--i) * 0.09s);
+  }
+  .lp-st:last-child { padding-bottom: 40px; }
+  .drawn .lp-st { opacity: 1; transform: none; }
+  .lp-node { position: relative; width: 20px; height: 20px; margin: 2px 0 0 6px; border: 4px solid var(--c); border-radius: 50%; background: var(--paper); }
+  .inter .lp-node { width: 30px; margin-left: 1px; border-color: var(--ink); border-radius: 10px; }
+  .lp-name { display: block; font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.25rem; line-height: 1.05; padding-top: 3px; }
+  .lp-change { display: block; margin-top: 2px; font-size: 0.82rem; line-height: 1.35; color: var(--ink-2); }
+  .lp-st.passed .lp-node { border-color: var(--ink-3); background: var(--ink-3); }
+  .lp-st.passed .lp-name { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 2px; }
+
+  .lp-jobs { position: relative; }
+  .lp-jobs ul { position: relative; list-style: none; padding: 0 0 0 28px; margin: 14px 0 0; }
+  .lp-jobs ul::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c); transform-origin: top; transform: scaleY(0); transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.95s; }
+  .drawn .lp-jobs ul::before { transform: scaleY(1); }
+  .lp-jobs li { position: relative; margin-bottom: 10px; opacity: 0; transition: opacity 0.35s ease; transition-delay: calc(1s + var(--i) * 0.04s); }
+  .lp-jobs li::before { content: ''; position: absolute; left: -22px; top: 50%; width: 22px; height: 4px; margin-top: -2px; background: var(--c); }
+  .drawn .lp-jobs li { opacity: 1; }
+  .lp-job {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 50px; padding: 7px 14px 3px;
+    border: 2px solid var(--ink); background: var(--paper); color: var(--ink); text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .lp-job:hover { transform: translateX(4px); }
+  .lp-job[aria-pressed='true'] { border-width: 3px; box-shadow: 6px 6px 0 var(--yellow); transform: translateX(4px); }
+  .lp-jt { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.2rem; line-height: 1.05; }
+  .lp-ja { font-size: 1.1rem; transition: transform 0.2s ease; }
+  .lp-job:hover .lp-ja { transform: translateX(4px); }
+
+  .lx-card {
+    grid-column: 3; grid-row: 1; display: flex; flex-direction: column; gap: 12px; padding: 22px 22px 24px;
+    border-left: 1.5px solid var(--ink); background: color-mix(in srgb, var(--yellow) 15%, var(--paper));
+  }
+  .lx-card:focus { outline: none; }
+  .lx-card.swap-a { animation: swap-a 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .lx-card.swap-b { animation: swap-b 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  @keyframes swap-a { from { opacity: 0.2; transform: translateX(18px); } }
+  @keyframes swap-b { from { opacity: 0.2; transform: translateX(18px); } }
+  .lx-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .lx-x { display: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 2px solid var(--ink); background: var(--paper); }
+  .lx-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5; }
+  .lx-board { font-size: 1.6rem; }
+  .lx-sum { font-size: 0.95rem; color: var(--ink-2); }
+  .lx-facts { margin: 0; }
+  .lx-facts :global(div) { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0 6px; border-bottom: 1px solid var(--rule); font-size: 0.93rem; }
+  .lx-facts :global(dt) { color: var(--ink-2); }
+  .lx-facts :global(dd) { margin: 0; text-align: right; font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.12rem; line-height: 1.1; }
+  .lx-hire { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .lx-hire :global(li) { font-size: 0.82rem; font-weight: 600; line-height: 1.4; padding: 2px 8px 1px; border: 1.5px solid var(--ink); background: var(--paper); }
+  .lx-hire :global(li.passed) { border-color: var(--ink-3); color: var(--ink-3); background: transparent; text-decoration: line-through; }
+  .lx-go {
+    display: flex; justify-content: center; gap: 10px; margin-top: 6px; padding: 14px 18px 9px;
+    background: var(--yellow); color: #000; border: 3px solid #000; text-decoration: none;
+    font-family: var(--sign); font-stretch: 85%; font-weight: 720; font-size: 1.35rem; line-height: 1;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .lx-go:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--ink); }
+  .lx-note { font-size: 0.82rem; text-align: center; }
+  .lx-back { display: none; }
+
+  /* The list. */
+  .lx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 6px; align-items: start; }
+  .lx-list[hidden] { display: none; }
+  .lx-fam { border: 2px solid var(--ink); border-left: 8px solid var(--c); background: var(--paper); }
+  .lx-fam summary {
+    display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px 4px; cursor: pointer; list-style: none;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.3rem;
+  }
+  .lx-fam summary > span:first-child { flex: 1; }
+  .lx-fam summary::-webkit-details-marker { display: none; }
+  .lx-fam summary::after { content: '+'; font-family: var(--text); font-size: 1.35rem; line-height: 1; transition: transform 0.25s ease; }
+  .lx-fam[open] summary::after { transform: rotate(45deg); }
+  .lx-fam ul { list-style: none; margin: 0; padding: 0; }
+  .lx-fam[open] ul { animation: rise 0.3s ease; }
+  .lx-fam a {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 7px 14px 5px;
+    border-top: 1px solid var(--rule); text-decoration: none;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 600; font-size: 1.12rem; line-height: 1.1;
+    transition: background-color 0.15s ease, padding-left 0.15s ease;
+  }
+  .lx-fam a:hover { background: var(--platform); padding-left: 20px; }
+  .lx-of { font-family: var(--text); font-size: 0.85rem; font-weight: 400; }
+  .lx-tag { flex: none; font-family: var(--text); font-size: 0.75rem; font-weight: 700; padding: 1px 7px; border: 1.5px solid var(--rule); color: var(--ink-2); }
+  .lx-tag.ok { border-color: var(--ink); color: var(--ink); }
+  .lx-none, .lx-legend { grid-column: 1 / -1; }
+  .lx-legend { font-size: 0.88rem; }
+
+  @media (max-width: 1100px) {
+    .lx-line { grid-template-columns: minmax(0, 1fr) minmax(0, 320px); }
+    .lp-left { grid-column: 1 / -1; border-right: 0; border-bottom: 1.5px solid var(--ink); }
+    .lx-card { grid-column: 2; grid-row: 2; }
+  }
+  @media (max-width: 760px) {
+    .lx-chips { mask-image: linear-gradient(90deg, #000 88%, transparent); }
+    .lx-line { grid-template-columns: minmax(0, 1fr); box-shadow: 5px 5px 0 var(--ink); }
+    .lp-left { padding: 18px 16px; }
+    .lp-mid { grid-template-columns: minmax(0, 1fr); padding: 20px 16px; gap: 0; }
+    .lp-rail::before { bottom: -14px; }
+    .lp-rail::after { display: none; }
+    .lp-st:last-child { padding-bottom: 22px; }
+    .lp-jobs ul { margin-top: 0; padding-left: 0; }
+    .lp-jobs ul::before { display: none; }
+    .lp-jobs li::before { display: none; }
+    .lp-jobs .lp-kicker { margin-top: 14px; }
+    .lx-card {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; max-height: 82vh; overflow-y: auto;
+      border: 0; border-top: 3px solid var(--ink); box-shadow: 0 -8px 0 -2px var(--yellow);
+      transform: translateY(110%); visibility: hidden; animation: none !important;
+      transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0.35s;
+    }
+    .sheet-open .lx-card { transform: none; visibility: visible; transition-delay: 0s; }
+    .lx-x { display: grid; }
+    .lx-back {
+      display: block; position: fixed; inset: 0; z-index: 59; border: 0; padding: 0;
+      background: rgba(0, 0, 0, 0.45); opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .sheet-open .lx-back { opacity: 1; pointer-events: auto; }
+    :global(html.lx-locked) { overflow: hidden; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lp-st, .lp-jobs li { opacity: 1; transform: none; }
+    .lp-rail::before, .lp-rail::after, .lp-jobs ul::before { transform: none; }
+  }
+</style>

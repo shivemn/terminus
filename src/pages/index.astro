@@ -1,11 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
-import NetworkMap from '../components/NetworkMap.astro';
+import LinesExplorer from '../components/LinesExplorer.astro';
 import HeroRide from '../components/HeroRide.astro';
 import { planPath, withPrerequisites } from '../lib/graph';
 import { duration } from '../lib/coaches';
 import { BACKGROUND_GROUPS } from '../lib/schema';
-import { content, plannerNodes } from '../lib/site';
+import { content, listOf, plannerNodes } from '../lib/site';
 import { stopDetails } from '../lib/stops';
 import { midSentence } from '../lib/text';
 import '../styles/picker.css';
@@ -27,17 +27,16 @@ const previewData = {
   roles: Object.fromEntries(c.roles.map((r) => [r.id, { title: r.title, hire: r.tiers.hire }])),
 };
 
-const featured = ['go', 'cpp', 'redis', 'bi-tools', 'spring-boot', 'docker', 'pytorch'].map((id) => c.concepts.find((x) => x.id === id)!);
 const toolCount = c.toolGroups.reduce((n, g) => n + g.tools.length, 0);
 // Every job title in the ticket, A to Z within each family; routes only in the phone list.
 const groups = c.families
   .map((f) => ({ family: f, roles: c.roles.filter((r) => r.family === f.id).sort((a, b) => a.title.localeCompare(b.title)) }))
   .filter((g) => g.roles.length > 0);
-const routeGroups = groups.map((g) => ({ ...g, roles: g.roles.filter((r) => !r.variantOf) }));
-const pickCount = (() => {
-  const details = stopDetails(c);
-  return { read: details.filter((d) => d.picks.read).length, watch: details.filter((d) => d.picks.watch).length };
-})();
+const routes = c.roles.filter((r) => !r.variantOf);
+const jobRoutes = routes.filter((r) => r.kind !== 'exam');
+const lineCount = new Set(jobRoutes.map((r) => r.family)).size;
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const lineWord = WORDS[lineCount] ?? String(lineCount);
 const counts = {
   concepts: c.concepts.filter((x) => x.kind === 'concept').length,
   tools: c.concepts.filter((x) => x.kind === 'tool').length,
@@ -62,19 +61,58 @@ const explain = {
   skipped: exFull.steps.length - exMine.steps.length,
   time: duration(exMine.totalHours, 10),
 };
-const famRoutes = routeGroups.map((g) => g.roles.length);
+
+// "Every stop tells you exactly what to do": one real stop on the same route.
+const details = stopDetails(c);
+const STOP = 'pandas';
+const sd = details.find((d) => d.id === STOP)!;
+const project = details.find((d) => d.id === exRole.tiers.hire.find((id) => details.find((x) => x.id === id)?.kind === 'project'))!;
+const sameFamily = routes.filter((r) => r.family === exRole.family && r.kind !== 'exam');
+const famTitle = c.families.find((f) => f.id === exRole.family)!;
+const after = sd.unlocks.filter((id) => !id.startsWith('project-')).map((id) => details.find((d) => d.id === id)!.title);
+const pick = (m: 'read' | 'watch' | 'practice', kind: string, cta: string) => {
+  const p = sd.picks[m]!;
+  return { kind, title: p.title, meta: `${p.author} \u00b7 ${p.locator}${p.note && m === 'practice' ? `. ${p.note}` : ''}`, href: p.url, cta, build: false };
+};
+const stop = {
+  id: sd.id,
+  title: sd.title,
+  summary: sd.summary,
+  hours: sd.hours,
+  n: exMine.steps.findIndex((s) => s.id === STOP) + 1,
+  of: exMine.steps.length,
+  route: `${exBg.title} to ${exRole.title}`,
+  after: listOf(sd.requires.map((id) => details.find((d) => d.id === id)!.title)),
+  why: `It's on the hiring list for ${midSentence(exRole.title)}, and for ${sameFamily.filter((r) => r.tiers.hire.includes(STOP)).length} of the ${sameFamily.length} ${famTitle.short ?? famTitle.title} routes. It comes before ${listOf(after.slice(0, 3).map(midSentence))}.`,
+  tiles: [
+    pick('read', 'Read', 'Open the book'),
+    pick('watch', 'Watch', 'Start watching'),
+    pick('practice', 'Practise', 'Start practising'),
+    { kind: 'Build', title: project.title.replace(/^Project: (.)/, (_, x: string) => x.toUpperCase()), meta: `About ${project.hours} hours \u00b7 ${project.summary}`, href: `/concepts/${project.id}`, cta: 'See the project brief', build: true },
+  ],
+};
+
+// "Recommendations with reasons": counted from the content at build time.
+const checked = jobRoutes.filter((r) => r.evidence);
+const sections = c.concepts.flatMap((x) => x.resources);
+const stats = [
+  { n: checked.reduce((n, r) => n + r.evidence!.postings, 0), label: 'Entry-level job listings the routes were checked against' },
+  { n: checked.length, of: jobRoutes.length, label: 'Job routes checked against those listings. The rest say "draft".' },
+  { n: counts.resources, label: 'Free books, courses and practice sites picked' },
+  { n: sections.filter((x) => x.verified).length, label: 'Chapter and lecture references opened and checked' },
+];
 ---
 
 <Base title="Terminus" wide>
-  <section class="intro" aria-labelledby="intro-heading">
+  <section class="intro" id="start" aria-labelledby="intro-heading">
     <div class="intro-text">
-      <h1 id="intro-heading" data-reveal>Roadmaps are the same for everyone. This one <span class="mark">starts from you.</span></h1>
+      <p class="sec-label" data-reveal><span class="sec-n">01</span>A study plan built around you</p>
+      <h1 id="intro-heading" data-reveal style="--delay: 0.04s">Roadmaps are the same for everyone. This one <span class="mark">starts from you.</span></h1>
       <p class="lede" data-reveal style="--delay: 0.08s">
-        A free study planner for jobs in software, data, infrastructure, finance and product. Say where you're
-        starting and which job you want. Terminus works out every topic in between, leaves out what you already
-        know, and puts the rest in order, like stops on a line.
+        Say where you're starting and which job you want. Terminus works out every topic in between, leaves out what
+        you already know, and puts the rest in order, like stops on a line.
       </p>
-      <form class="ticket" action="/roles" method="get" data-picker data-reveal style="--delay: 0.16s">
+      <form class="ticket" action="/roles" method="get" data-picker data-reveal style="--delay: 0.14s">
         <div class="ticket-main">
           <div class="ticket-row">
             <label class="ticket-label" id="ticket-from" for="ticket-from-select">From</label>
@@ -103,17 +141,19 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
           </div>
         </div>
         <div class="ticket-stub">
-          <button type="submit" class="btn">Plan my route</button>
+          <button type="submit" class="btn">Plan my route <span aria-hidden="true">&rarr;</span></button>
           <span class="ticket-small">Free. No account.</span>
         </div>
       </form>
-      <p class="intro-note" data-reveal style="--delay: 0.24s">
-        Each stop has a book, a video course and a place to practise, all free. Tick them off as you go. Or learn just
-        one tool:{' '}
-        {featured.map((x, i) => (
-          <>{i > 0 && ', '}<a href={`/tools/${x.id}`}>{x.title}</a></>
-        ))}
-        , or <a href="/tools">any of {toolCount}</a>.
+      <ul class="strip" data-reveal style="--delay: 0.2s">
+        <li>{jobs.length} jobs</li>
+        <li>{exams.length} exams</li>
+        <li>A free pick at every stop</li>
+        <li>No account</li>
+      </ul>
+      <p class="intro-more" data-reveal style="--delay: 0.24s">
+        <a href="#lines">Or explore all {lineWord} lines</a> <span aria-hidden="true">&darr;</span>
+        <span class="quiet"> &middot; Or learn just one tool: <a href="/tools">any of {toolCount}</a></span>
       </p>
       <div class="welcome" data-welcome hidden>
         <h2>Welcome back. The jobs closest to where you are:</h2>
@@ -121,31 +161,29 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
       </div>
     </div>
     <div class="intro-ride" data-reveal style="--delay: 0.2s">
+      <p class="ride-label" data-ride-label>Example route</p>
       <HeroRide />
     </div>
     <script type="application/json" id="preview-data" set:html={JSON.stringify(previewData)} />
   </section>
 
-  <section class="roles" id="roles" aria-labelledby="roles-heading">
-    <h2 id="roles-heading" data-reveal>Where you can go</h2>
-    <p class="roles-lede" data-reveal style="--delay: 0.06s">
-      Every line ends at a job. Where two lines share a stop, those jobs ask for the same skills, so that's where you
-      can change from one career to the other. Pick a line, or pick a job to see where it meets the others.
+  <section class="sec" id="lines" aria-labelledby="lines-heading">
+    <div class="sechead">
+      <p class="sec-label" data-reveal><span class="sec-n">02</span>Choose a direction</p>
+      <div>
+        <h2 id="lines-heading" class="h2" data-reveal>Where could you go?</h2>
+        <p class="lede2" data-reveal style="--delay: 0.06s">
+          {lineWord.charAt(0).toUpperCase() + lineWord.slice(1)} lines, one for each family of jobs. Pick a line to see its jobs and the stops they share. Where two
+          lines meet at a stop, those jobs ask for the same skills, so that's where you can change from one career to
+          the other.
+        </p>
+      </div>
+    </div>
+    <LinesExplorer />
+    <p class="lines-foot">
+      Not sure which line fits? <button type="button" class="link-button" data-plan-start>Start with what you know</button> and the route works it out.
     </p>
-    <div class="map-wide" data-reveal style="--delay: 0.1s">
-      <NetworkMap />
-    </div>
-    <div class="families">
-      {
-        routeGroups.map(({ family, roles }, i) => (
-          <details data-family={family.id} open={i === 0}>
-            <summary><span>{family.title}</span> <span class="num quiet">{famRoutes[i]}</span></summary>
-            <ul>{roles.map((r) => <li><a href={`/roles/${r.id}`}>{r.title}</a></li>)}</ul>
-          </details>
-        ))
-      }
-    </div>
-    <p class="exams-line">
+    <p class="exams-line quiet">
       <a href="/roles">All {jobs.length} job titles</a>, grouped by route. Studying for an exam instead?{' '}
       {exams.map((r, i) => (
         <>{i > 0 && ', '}<a href={`/roles/${r.id}`}>{r.title}</a></>
@@ -154,33 +192,90 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
     </p>
   </section>
 
-  <section class="how" aria-labelledby="how-heading" data-explain data-step="1">
-    <h2 id="how-heading" data-reveal>How the route is worked out</h2>
-    <p class="roles-lede" data-reveal style="--delay: 0.06s">Three steps, shown with one real route. Scroll through them, or pick one.</p>
+  <section class="sec" id="stop" aria-labelledby="stop-heading">
+    <div class="sechead">
+      <p class="sec-label" data-reveal><span class="sec-n">03</span>More than a checklist</p>
+      <div>
+        <h2 id="stop-heading" class="h2" data-reveal>Every stop tells you exactly what to do.</h2>
+        <p class="lede2" data-reveal style="--delay: 0.06s">
+          Learn the idea, practise it, then use it in something you build. Every pick is free, and every chapter and
+          lecture it points to has been opened and checked.
+        </p>
+      </div>
+    </div>
+    <div class="stop" data-reveal>
+      <div class="stop-main">
+        <p class="kicker">Stop {stop.n} of {stop.of} &middot; {stop.route}</p>
+        <h3 class="stop-title">{stop.title}</h3>
+        <p class="quiet">{stop.summary}</p>
+        <div class="why">
+          <p class="why-head">Why this stop?</p>
+          <p>{stop.why}</p>
+        </div>
+        <ul class="stop-chips">
+          <li>About {stop.hours} hours</li>
+          {stop.after && <li>After {stop.after}</li>}
+          <li>Every link checked</li>
+        </ul>
+        <a class="stop-open" href={`/concepts/${stop.id}`}>Open this stop <span aria-hidden="true">&rarr;</span></a>
+      </div>
+      <div class="tiles">
+        {stop.tiles.map((t, i) => (
+          <div class:list={['tile', { build: t.build }]} data-reveal style={`--delay: ${0.12 + i * 0.1}s`}>
+            <span class="tile-k">{String(i + 1).padStart(2, '0')} &middot; {t.kind}</span>
+            <p class="tile-t">{t.title}</p>
+            <p class="tile-m">{t.meta}</p>
+            <a class="tile-l" href={t.href} target={t.build ? undefined : '_blank'} rel={t.build ? undefined : 'noopener'}>
+              {t.cta} <span aria-hidden="true">{t.build ? '\u2192' : '\u2197'}</span>
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="band how" id="how" aria-labelledby="how-heading" data-explain data-step="1">
+    <div class="sechead on-dark">
+      <p class="sec-label" data-reveal><span class="sec-n">04</span>How it works</p>
+      <div>
+        <h2 id="how-heading" class="h2" data-reveal>From a job title to a route you can follow.</h2>
+        <p class="lede2" data-reveal style="--delay: 0.06s">Every stop has a reason to be there. Here are the three steps, shown with one real route. Scroll through them, or pick one.</p>
+      </div>
+    </div>
     <div class="how-grid">
-      <ol class="how-steps">
+      <ol class="how-steps on-dark">
         <li data-step-text="1">
           <button type="button" class="step-head" data-go="1"><span class="step-n">1</span><span class="step-title">Start from the job</span></button>
-          <p>
-            Every role lists what it needs in three tiers: what gets you hired, what the first year expects, and what's
-            good to have. For {midSentence(explain.role)}s the hiring list comes to {explain.total} stops, from the
-            very first one.
-          </p>
+          <div class="step-body">
+            <svg class="step-ico" viewBox="0 0 54 40" aria-hidden="true"><circle cx="8" cy="20" r="5" class="i-ink" /><path d="M13 20h22" class="i-yel" /><rect x="38" y="8" width="8" height="24" class="i-fill" /></svg>
+            <p>
+              Every role lists what gets you hired, what the first year expects, and what's good to have, checked
+              against real entry-level listings where we have them. For {midSentence(explain.role)}s the hiring list
+              comes to {explain.total} stops, from the very first one.
+            </p>
+          </div>
         </li>
         <li data-step-text="2">
           <button type="button" class="step-head" data-go="2"><span class="step-n">2</span><span class="step-title">Strike off what you know</span></button>
-          <p>
-            Every topic lists what you need to know before it. Terminus walks back from the role through those and
-            stops wherever your background already covers the ground. A maths or statistics degree covers
-            {' '}{explain.skipped} of these stops, so they're left out.
-          </p>
+          <div class="step-body">
+            <svg class="step-ico" viewBox="0 0 54 40" aria-hidden="true"><circle cx="8" cy="12" r="5" class="i-dim" /><path d="M17 12h30" class="i-dim" /><path d="M3 12h48" class="i-yel" /><circle cx="8" cy="30" r="5" class="i-ink" /><path d="M17 30h30" class="i-ink" /></svg>
+            <p>
+              Every topic lists what you need to know before it. Terminus walks back from the job through those and
+              stops wherever your degree or your current job already covers the ground. A maths or statistics degree
+              covers {explain.skipped} of these stops, so they go.
+            </p>
+          </div>
         </li>
         <li data-step-text="3">
-          <button type="button" class="step-head" data-go="3"><span class="step-n">3</span><span class="step-title">Put the rest in order</span></button>
-          <p>
-            What's left goes in order, starting the longest chains first and keeping you on one line at a time where it
-            can: {explain.left} stops, {explain.time} at 10 hours a week.
-          </p>
+          <button type="button" class="step-head" data-go="3"><span class="step-n">3</span><span class="step-title">Follow one clear route</span></button>
+          <div class="step-body">
+            <svg class="step-ico" viewBox="0 0 54 40" aria-hidden="true"><path d="M8 4v32" class="i-yel" /><circle cx="8" cy="8" r="4" class="i-ink i-solid" /><circle cx="8" cy="20" r="4" class="i-ink i-solid" /><circle cx="8" cy="32" r="4" class="i-ink i-solid" /><path d="M20 8h26M20 20h20M20 32h24" class="i-dim" /></svg>
+            <p>
+              What's left goes in prerequisite order, longest chains first, staying on one line at a time where it can.
+              Each stop comes with free picks to read, watch or practise, and a time estimate: {explain.left} stops,
+              {' '}{explain.time} at 10 hours a week.
+            </p>
+          </div>
         </li>
       </ol>
       <div class="explain-card" aria-hidden="true">
@@ -203,12 +298,42 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
         </p>
       </div>
     </div>
-    <p class="how-facts quiet">
-      So far there are {counts.concepts} concepts, {counts.tools} tools and {counts.projects} projects.{' '}
-      {pickCount.read} have a book or written guide picked and {pickCount.watch} have a video course.
-      Role lists are drafts until they've been checked against real job postings. The
-      {' '}<a href="https://github.com/shivemn/terminus/blob/main/docs/SYSTEM_DESIGN.md">design notes</a> have the details.
-    </p>
+  </section>
+
+  <section class="sec" id="trust" aria-labelledby="trust-heading">
+    <div class="sechead">
+      <p class="sec-label" data-reveal><span class="sec-n">05</span>Built to be trusted</p>
+      <div>
+        <h2 id="trust-heading" class="h2" data-reveal>Recommendations with reasons.</h2>
+        <p class="lede2" data-reveal style="--delay: 0.06s">
+          Routes come from real job listings, the prerequisites between topics, and free resources opened and checked
+          by hand. Here is how much of that is done so far.
+        </p>
+        <dl class="stats" data-stats data-reveal>
+          {stats.map((x) => (
+            <div class="stat">
+              <dt>{x.label}</dt>
+              <dd><span class="num" data-count={x.n}>{x.n.toLocaleString('en-IN')}</span>{x.of && <small> of {x.of}</small>}</dd>
+            </div>
+          ))}
+        </dl>
+        <p class="stats-foot">
+          <span class="faint">Counted from Terminus's own content files every time the site is built. Concepts: {counts.concepts}, tools: {counts.tools}, projects: {counts.projects}.</span>
+          <a href="/method">How routes are checked <span aria-hidden="true">&rarr;</span></a>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band cta" aria-labelledby="cta-heading">
+    <div class="cta-inner">
+      <div>
+        <p class="sec-label" data-reveal><span class="sec-n">06</span>Learn without the guesswork</p>
+        <h2 id="cta-heading" class="h2" data-reveal>One route. Everything you need.</h2>
+        <p class="cta-lede" data-reveal>Free books, video courses and hands-on practice, picked for every stop and put in the order you need them.</p>
+      </div>
+      <button type="button" class="cta-btn" data-plan-start data-reveal>Plan my route <span aria-hidden="true">&rarr;</span></button>
+    </div>
   </section>
 </Base>
 
@@ -244,6 +369,33 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
   fromSelect.addEventListener('change', () => fromPicker.button.classList.remove('nudge'));
 
   const data: PreviewData = JSON.parse(document.getElementById('preview-data')!.textContent!);
+  const rideLabel = document.querySelector<HTMLElement>('[data-ride-label]')!;
+  const motion = () => document.documentElement.classList.contains('motion');
+
+  // "Start with what you know" and the closing button: back up to the ticket, From open.
+  document.querySelectorAll<HTMLButtonElement>('[data-plan-start]').forEach((b) => b.addEventListener('click', () => {
+    document.getElementById('start')!.scrollIntoView({ behavior: motion() ? 'smooth' : 'auto', block: 'start' });
+    setTimeout(() => fromPicker.open(), motion() ? 550 : 0);
+  }));
+
+  // The trust numbers count up the first time they come into view.
+  const stats = document.querySelector<HTMLElement>('[data-stats]');
+  if (stats && motion() && 'IntersectionObserver' in window) {
+    const nums = [...stats.querySelectorAll<HTMLElement>('[data-count]')];
+    const io = new IntersectionObserver(([e]) => {
+      if (!e!.isIntersecting) return;
+      io.disconnect();
+      const t0 = performance.now();
+      const tick = (t: number) => {
+        const k = Math.min(1, (t - t0) / 1300);
+        const ease = 1 - Math.pow(1 - k, 3);
+        for (const n of nums) n.textContent = Math.round(Number(n.dataset.count) * ease).toLocaleString('en-IN');
+        if (k < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, { threshold: 0.4 });
+    io.observe(stats);
+  }
   const titles = new Map(data.nodes.map((n) => [n.id, n.title]));
 
   // Re-plan whenever the ticket changes: the ride plays the visitor's own route, and the map greys out what's behind them.
@@ -255,10 +407,17 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
     const role = data.roles[roleId];
     document.dispatchEvent(
       new CustomEvent('terminus:ticket', {
-        detail: { known: [...withPrerequisites(data.nodes, bg?.knows ?? [])], from: from.startsWith('role:') ? from.slice(5) : undefined, fromId: from || undefined },
+        detail: {
+          known: [...withPrerequisites(data.nodes, bg?.knows ?? [])],
+          from: from.startsWith('role:') ? from.slice(5) : undefined,
+          fromId: from || undefined,
+          fromLabel: bg ? bg.job ?? fromSelect.selectedOptions[0]?.textContent ?? '' : '',
+          to: roleId || undefined,
+        },
       }),
     );
     if (!role) return; // the ride waits for a job
+    rideLabel.textContent = 'Your route';
     const known = new Set(bg?.knows ?? []);
     const full = planPath(data.nodes, role.hire, new Set());
     const mine = planPath(data.nodes, role.hire, known);
@@ -333,7 +492,7 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
 <style>
   .intro { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 64px; align-items: start; padding-top: 18px; }
   .intro-text { display: grid; gap: 22px; align-content: start; }
-  .intro h1 { max-width: 15ch; font-size: clamp(2.5rem, 6.2vw, 4.4rem); font-weight: 600; line-height: 1.04; }
+  .intro h1 { max-width: 15ch; font-size: clamp(2.9rem, 6.4vw, 5.2rem); font-weight: 700; line-height: 0.94; }
   /* The highlighter sweeps across "starts from you." once the heading is in. */
   .mark {
     background-image: linear-gradient(var(--yellow), var(--yellow)); background-repeat: no-repeat;
@@ -345,7 +504,6 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
   :global(.motion) .mark { transition: background-size 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s, color 0.3s ease 0.7s; }
 
   .lede { font-size: 1.2rem; max-width: 52ch; color: var(--ink-2); }
-  .intro-note { color: var(--ink-2); font-size: 0.97rem; max-width: 60ch; }
   .welcome { border: 3px solid var(--ink); padding: 12px 16px; background: var(--paper); max-width: 52ch; animation: rise 0.4s ease; }
   .welcome[hidden] { display: none; }
   .welcome h2 { font-size: 1.15rem; }
@@ -379,30 +537,96 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
   .ticket-stub .btn:hover { background: #333; }
   .ticket-small { font-size: 0.85rem; font-weight: 600; color: var(--on-yellow); }
 
-  .roles { margin-top: 110px; scroll-margin-top: 90px; }
-  .roles-lede { max-width: 68ch; color: var(--ink-2); margin-top: 10px; }
-  .exams-line { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--rule); }
-  .map-wide { display: block; }
-  .roles .families { display: none; }
-  @media (max-width: 860px) {
-    .map-wide { display: none; }
-    .roles .families { display: grid; }
+
+  /* Sections: a numbered label, then a big heading, like the template. */
+  .sec { margin-top: clamp(84px, 10vw, 140px); scroll-margin-top: 80px; }
+  .sec-label {
+    display: flex; align-items: center; gap: 12px; margin: 0;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.15rem; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase;
   }
-  .families { gap: 10px; margin-top: 18px; }
-  .families details { border: 2px solid var(--ink); background: var(--paper); border-left: 8px solid var(--family, var(--ink)); }
-  .families summary {
-    display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px 8px; cursor: pointer;
-    font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.25rem; list-style: none;
+  .sec-n {
+    flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding-top: 3px;
+    border: 2.5px solid var(--ink); border-radius: 50%; background: var(--yellow); color: #000;
+    font-weight: 750; font-size: 1.2rem; letter-spacing: 0;
   }
-  .families summary::-webkit-details-marker { display: none; }
-  .families summary::after { content: '+'; font-family: var(--text); font-size: 1.3rem; line-height: 1; transition: transform 0.25s ease; }
-  .families details[open] summary::after { transform: rotate(45deg); }
-  .families ul { list-style: none; padding: 0 14px 12px; margin: 0; display: grid; gap: 2px; }
-  .families details[open] ul { animation: rise 0.3s ease; }
-  .families a { display: block; padding: 6px 0; font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.15rem; border-top: 1px solid var(--rule); }
+  .sechead { display: grid; grid-template-columns: minmax(0, 0.34fr) minmax(0, 1fr); gap: 18px 32px; align-items: start; }
+  .h2 { font-size: clamp(2.6rem, 5vw, 4.4rem); font-weight: 700; line-height: 0.92; text-wrap: balance; }
+  .lede2 { margin-top: 14px; font-size: 1.15rem; color: var(--ink-2); max-width: 58ch; }
+  .kicker { font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+
+  .strip { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 0.95rem; font-weight: 600; color: var(--ink-2); }
+  .strip li { display: flex; align-items: center; gap: 8px; }
+  .strip li::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); border: 1.5px solid var(--ink); }
+  .intro-more { font-size: 0.97rem; }
+  .intro-more > a { font-weight: 700; }
+  .ride-label { margin: 0 0 10px; text-align: right; font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1.05rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+
+  .lines-foot { margin-top: 22px; text-align: center; color: var(--ink-2); }
+  .link-button { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--ink); text-decoration: underline; text-underline-offset: 0.2em; }
+  .exams-line { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 0.95rem; }
+
+  /* One stop, opened up. */
+  .stop {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.9fr); margin-top: 40px;
+    border: 3px solid var(--ink); background: var(--paper); box-shadow: 10px 10px 0 var(--yellow);
+  }
+  .stop-main { display: flex; flex-direction: column; gap: 14px; padding: 28px 28px 26px; border-right: 1.5px solid var(--ink); }
+  .stop-title { font-size: clamp(2.2rem, 3.4vw, 3rem); font-weight: 700; line-height: 0.95; }
+  .why { padding: 14px 16px; background: var(--platform); border: 1.5px solid var(--rule); }
+  .why-head { font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.25rem; line-height: 1.1; }
+  .why p:last-child { margin-top: 4px; font-size: 0.95rem; color: var(--ink-2); }
+  .stop-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+  .stop-chips li { font-size: 0.82rem; font-weight: 700; padding: 3px 9px 1px; border: 1.5px solid var(--ink); }
+  .stop-open { margin-top: auto; font-weight: 700; font-size: 0.95rem; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile { display: flex; flex-direction: column; gap: 6px; padding: 24px 26px 22px; border-bottom: 1.5px solid var(--ink); }
+  .tile:nth-child(odd) { border-right: 1.5px solid var(--ink); }
+  .tile:nth-child(n + 3) { border-bottom: 0; }
+  .tile.build { background: var(--yellow); color: #000; }
+  .tile-k { font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1.02rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+  .tile-t { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: clamp(1.45rem, 2vw, 1.8rem); line-height: 1.02; }
+  .tile-m { font-size: 0.95rem; color: var(--ink-2); }
+  .tile.build :is(.tile-k, .tile-m) { color: #222; }
+  .tile-l { margin-top: auto; padding-top: 10px; font-weight: 700; font-size: 0.95rem; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .tile-l span { transition: transform 0.2s ease; }
+  .tile-l:hover span { transform: translate(3px, -3px); }
+  .tile.build .tile-l:hover span { transform: translateX(4px); }
+
+  /* Full-width bands. The colour is painted past the column without widening the page. */
+  .band { margin-top: clamp(84px, 10vw, 140px); padding: clamp(64px, 8vw, 112px) 0; }
+  .how { color: #f3f1ea; border-image: linear-gradient(var(--band-edge) 0 3px, #111214 3px calc(100% - 3px), var(--band-edge) calc(100% - 3px)) fill 0 / / 0 100vw; }
+  .on-dark { --ink: #f3f1ea; --ink-2: #c2beb2; --ink-3: #9c988c; }
+  .on-dark .sec-n { border-color: #000; }
+  .how .how-grid { margin-top: 48px; }
+  .how .step-n { background: transparent; }
+  .how .explain-card { color: var(--ink); border-color: #f3f1ea; box-shadow: 10px 10px 0 var(--yellow); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 26px 0 0; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+  .stat { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 4px; padding: 20px 20px 18px 0; }
+  .stat + .stat { padding-left: 20px; border-left: 1.5px solid var(--rule); }
+  .stat dd { margin: 0; font-family: var(--sign); font-weight: 700; font-size: clamp(2.6rem, 4.4vw, 3.8rem); line-height: 0.9; }
+  .stat small { font-size: 0.45em; font-weight: 600; color: var(--ink-2); }
+  .stat dt { font-size: 0.88rem; line-height: 1.4; color: var(--ink-2); }
+  .stats-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; margin-top: 14px; font-size: 0.88rem; }
+  .stats-foot a { font-weight: 700; }
+
+  .cta { color: #000; padding: clamp(54px, 7vw, 96px) 0; border-image: linear-gradient(#111 0 3px, var(--yellow) 3px) fill 0 / / 0 100vw; }
+  /* The closing band sits right on the footer. */
+  :global(.page:has(> .cta:last-child)) { padding-bottom: 0; }
+  :global(.page:has(> .cta:last-child) + .colophon) { margin-top: 0; }
+  .cta .sec-n { background: #111; color: var(--yellow); border-color: #111; }
+  .cta-inner { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 28px 48px; }
+  .cta-inner > div { flex: 1 1 520px; min-width: 0; }
+  .cta .h2 { margin-top: 18px; }
+  .cta-lede { margin-top: 14px; font-size: 1.15rem; color: #2a2a2a; max-width: 52ch; }
+  .cta-btn {
+    display: inline-flex; gap: 10px; align-items: center; border: 3px solid #111; background: #111; color: var(--yellow);
+    font-family: var(--sign); font-stretch: 85%; font-weight: 720; font-size: 1.6rem; line-height: 1; padding: 16px 24px 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .cta-btn:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 #fff; }
 
   /* How the route is worked out */
-  .how { margin-top: 110px; }
   .how-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 72px; margin-top: 26px; align-items: start; }
   .how-steps { list-style: none; padding: 0; margin: 0; }
   .how-steps li { min-height: 46vh; padding-bottom: 24px; opacity: 0.4; transition: opacity 0.35s ease; }
@@ -418,7 +642,14 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
   [data-step='1'] [data-step-text='1'] .step-n, [data-step='2'] [data-step-text='2'] .step-n, [data-step='3'] [data-step-text='3'] .step-n { background: var(--yellow); color: #000; border-color: #000; }
   .step-title { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.05; padding-top: 5px; }
   .step-head:hover .step-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.14em; }
-  .how-steps p { margin: 10px 0 0 60px; max-width: 46ch; font-size: 1.1rem; color: var(--ink-2); }
+  .step-body { display: flex; gap: 16px; align-items: flex-start; margin: 14px 0 0 60px; }
+  .how-steps p { max-width: 44ch; font-size: 1.1rem; color: var(--ink-2); }
+  .step-ico { flex: none; width: 54px; height: 40px; fill: none; stroke-width: 3; }
+  .i-ink { stroke: #f3f1ea; }
+  .i-solid { fill: #111214; }
+  .i-yel { stroke: var(--yellow); }
+  .i-dim { stroke: #77746c; }
+  .i-fill { fill: var(--yellow); stroke: #f3f1ea; }
 
   .explain-card { position: sticky; top: calc(var(--head-h, 64px) + 24px); border: 3px solid var(--ink); background: var(--paper); }
   .explain-head { background: #111; color: var(--yellow); padding: 10px 18px 7px; font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.25rem; line-height: 1.15; }
@@ -428,6 +659,8 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
     transition: height 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s;
   }
   [data-step='3'] .explain-rail { height: calc(var(--left) * var(--row) + 4px); }
+  .explain-line { transition: height 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  [data-step='3'] .explain-line { height: calc((var(--left) + 1.6) * var(--row)); }
   .explain-row {
     position: absolute; left: 0; right: 0; top: calc(var(--a) * var(--row)); height: var(--row);
     display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px;
@@ -462,13 +695,19 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
   .explain-note { padding: 4px 20px 16px; font-size: 0.95rem; font-weight: 600; }
   .explain-note span { display: none; }
   [data-step='1'] [data-note='1'], [data-step='2'] [data-note='2'], [data-step='3'] [data-note='3'] { display: inline; animation: rise 0.3s ease; }
-  .how-facts { margin-top: 28px; max-width: 80ch; font-size: 0.95rem; }
 
   @media (max-width: 960px) {
     .intro { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .intro { padding-top: 8px; }
     .intro-ride { position: static; }
     .how-grid { grid-template-columns: minmax(0, 1fr); }
+    .stop { grid-template-columns: minmax(0, 1fr); }
+    .stop-main { border-right: 0; border-bottom: 1.5px solid var(--ink); }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+    .stat:nth-child(n + 3) { border-top: 1.5px solid var(--rule); }
+    .ride-label { text-align: left; }
+    .how .explain-card { box-shadow: 0 10px 0 -2px #111214; }
     /* On a phone the card rides at the top while the steps scroll under it. */
     .explain-card { order: -1; top: calc(var(--head-h, 56px) + 8px); z-index: 2; box-shadow: 0 10px 0 -2px var(--ground); }
     .explain-line { --row: 25px; margin-top: 10px; }
@@ -483,7 +722,16 @@ const famRoutes = routeGroups.map((g) => g.roles.length);
     .explain-note { padding: 2px 14px 10px; font-size: 0.88rem; }
     .how-steps li { min-height: 62vh; padding-top: 10vh; }
     .how-steps li:last-child { min-height: 70vh; }
-    .how-steps p { margin-left: 0; }
+    .step-body { margin-left: 0; }
+  }
+  @media (max-width: 760px) {
+    .sechead { grid-template-columns: minmax(0, 1fr); }
+    .stop { box-shadow: 6px 6px 0 var(--yellow); }
+    .stop-main { padding: 20px 16px; }
+    .tile { padding: 16px 14px 14px; }
+    .band { padding: 56px 0; }
+    .stat { padding: 16px 12px 14px 0; }
+    .stat + .stat { padding-left: 12px; }
   }
   @media (max-width: 560px) {
     .ticket { grid-template-columns: minmax(0, 1fr); box-shadow: 4px 4px 0 var(--ink); }

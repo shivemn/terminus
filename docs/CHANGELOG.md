@@ -1,5 +1,10 @@
 # Changelog
 
+## 25 November 2026
+
+- **Home page in six numbered sections.** 01 the ticket and the ride, with a strip of what's on offer. 02 "Where could you go?": a search box, a Map/List switch and one chip per line. All lines shows the full network map. One line opens three panels: what the line is, its stops (with where you can change to other lines) branching into its jobs, and a card for the job you pick. The card works out your own route from the ticket: how many stops are behind you and how long the rest takes. On a phone the page opens on the list, and the card slides up from the bottom. The list says which routes are checked against listings and which are drafts, and searching finds every job title, not only routes. 03 one real stop opened up (pandas, stop 3 of 7 from a maths degree to data scientist): why it's there, then what to read, watch, practise and build. 04 "How it works" on a dark band, the same three scrolling steps. 05 "Recommendations with reasons": listings checked against, routes checked, free resources and chapter references, all counted at build time. 06 a yellow closing band that takes you back up to the ticket.
+- **How routes are checked**, a new short page at /method, linked from the home page and the footer.
+
 ## 15 November 2026
 
 - **A redesign with motion.** Warm paper background with a faint dot grid instead of plain white, in light and dark. The light/dark button is now a switch whose sun turns into a moon, and the new theme spreads out in a circle from it. Every button gives a small press when clicked, sections rise into place as you scroll, and moving between pages fades instead of flashing.
