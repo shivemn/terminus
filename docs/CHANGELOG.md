@@ -1,5 +1,9 @@
 # Changelog
 
+## 26 November 2026
+
+- **The home page's List view is now tiles.** Pick a line and its jobs appear as small boxes under a coloured heading, one job name each, rippling in. With All lines picked, the list points to the All roles page instead of repeating it. A search still shows matching tiles from every line. Phones open on that pointer, with the line chips just above it.
+
 ## 25 November 2026
 
 - **Home page in six numbered sections.** 01 the ticket and the ride, with a strip of what's on offer. 02 "Where could you go?": a search box, a Map/List switch and one chip per line. All lines shows the full network map. One line opens three panels: what the line is, its stops (with where you can change to other lines) branching into its jobs, and a card for the job you pick. The card works out your own route from the ticket: how many stops are behind you and how long the rest takes. On a phone the page opens on the list, and the card slides up from the bottom. The list says which routes are checked against listings and which are drafts, and searching finds every job title, not only routes. 03 one real stop opened up (pandas, stop 3 of 7 from a maths degree to data scientist): why it's there, then what to read, watch, practise and build. 04 "How it works" on a dark band, the same three scrolling steps. 05 "Recommendations with reasons": listings checked against, routes checked, free resources and chapter references, all counted at build time. 06 a yellow closing band that takes you back up to the ticket.

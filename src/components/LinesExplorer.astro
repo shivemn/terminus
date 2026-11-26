@@ -48,10 +48,9 @@ const variants = c.roles.filter((r) => r.variantOf && r.kind !== 'exam');
 const list = lines.map((l) => ({
   ...l,
   rows: l.jobs.flatMap((j) => {
-    const r = byId.get(j.id)!;
     return [
-      { id: j.id, title: j.title, route: true, checked: !!r.evidence },
-      ...variants.filter((v) => v.variantOf === j.id).map((v) => ({ id: v.id, title: v.title, route: false, checked: !!r.evidence, of: j.title })),
+      { id: j.id, title: j.title, route: true, of: '' },
+      ...variants.filter((v) => v.variantOf === j.id).map((v) => ({ id: v.id, title: v.title, route: false, of: j.title })),
     ];
   }),
 }));
@@ -68,6 +67,7 @@ const cardData = {
   ),
 };
 const total = lines.reduce((n, l) => n + l.jobs.length, 0);
+const jobCount = c.roles.filter((r) => r.kind !== 'exam').length;
 ---
 
 <div class="lx" data-lx>
@@ -157,23 +157,28 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
   </div>
 
   <div class="lx-list" data-lx-pane="list" hidden>
-    {list.map((l, i) => (
-      <details class="lx-fam" data-lx-fam={l.id} data-line={l.id} open={i === 0}>
-        <summary><span>{l.short}</span> <span class="lx-n num">{l.jobs.length} {l.jobs.length === 1 ? 'job' : 'jobs'}</span></summary>
-        <ul>
+    <div class="lx-all" data-lx-all>
+      <div>
+        <p class="lx-all-h">Every job, on one page</p>
+        <p class="quiet">All {jobCount} job titles are on the All roles page, grouped by route. Here, pick a line above to see just its jobs, or search to find one.</p>
+      </div>
+      <a class="lx-tile lx-all-go" href="/roles">See all roles<span class="lx-ar" aria-hidden="true">&rarr;</span></a>
+    </div>
+    {list.map((l) => (
+      <section class="lx-fam" data-lx-fam={l.id} data-line={l.id} hidden>
+        <h3 class="lx-fam-h">{l.full} <span class="lx-n num" data-lx-count>{l.jobs.length} {l.jobs.length === 1 ? 'job' : 'jobs'}</span></h3>
+        <ul class="lx-tiles">
           {l.rows.map((r) => (
             <li data-lx-row data-title={r.title.toLowerCase()} data-variant={r.route ? undefined : ''} hidden={!r.route}>
-              <a href={`/roles/${r.id}`} data-lx-open={r.route ? r.id : undefined}>
-                <span>{r.title}{!r.route && <span class="faint lx-of">, on the {r.of} route</span>}</span>
-                <span class:list={['lx-tag', { ok: r.checked }]}>{r.checked ? 'Checked' : 'Draft'}</span>
+              <a class="lx-tile" href={`/roles/${r.id}`} data-lx-open={r.route ? r.id : undefined} title={r.route ? undefined : `On the ${r.of} route`}>
+                {r.title}<span class="lx-ar" aria-hidden="true">&rarr;</span>
               </a>
             </li>
           ))}
         </ul>
-      </details>
+      </section>
     ))}
     <p class="lx-none" data-lx-none hidden>No job matches that yet. Try a shorter word, like "analyst".</p>
-    <p class="faint lx-legend">"Checked" means the route was compared with real entry-level listings. "Draft" means it hasn't been yet.</p>
   </div>
   <script type="application/json" id="lx-data" set:html={JSON.stringify(cardData)} />
 </div>
@@ -233,19 +238,26 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
       views.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lxView === view)));
       if (!panes.line.hidden) $$('[data-lp]').forEach((p) => (p.hidden = p.dataset.lp !== line));
       if (showList) {
+        // All lines is the All roles page's job; here it's a pointer there. A line shows its
+        // jobs as tiles, and a search shows the matching tiles from every line.
         let shown = 0;
-        for (const fam of $$<HTMLDetailsElement>('[data-lx-fam]')) {
+        $('[data-lx-all]').hidden = query !== '' || line !== null;
+        for (const fam of $$('[data-lx-fam]')) {
           let n = 0;
+          let i = 0;
           for (const row of fam.querySelectorAll<HTMLElement>('[data-lx-row]')) {
             const hit = query ? row.dataset.title!.includes(query) : !('variant' in row.dataset);
             row.hidden = !hit;
-            if (hit) n++;
+            if (hit) {
+              n++;
+              row.style.setProperty('--i', String(Math.min(i++, 15))); // the ripple stops growing after 15 tiles
+            }
           }
-          fam.hidden = n === 0 || (!query && line !== null && fam.dataset.lxFam !== line);
-          if (query) fam.open = true;
+          fam.hidden = n === 0 || (!query && fam.dataset.lxFam !== line);
+          fam.querySelector('[data-lx-count]')!.textContent = `${n} ${n === 1 ? 'job' : 'jobs'}`;
           if (!fam.hidden) shown += n;
         }
-        $('[data-lx-none]').hidden = shown > 0;
+        $('[data-lx-none]').hidden = !query || shown > 0;
       }
       if (!panes.map.hidden) dispatchEvent(new Event('resize'));
     }
@@ -349,11 +361,6 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
 
     chips.forEach((c) => c.addEventListener('click', () => {
       pickLine(c.dataset.lxChip || null);
-      if (line && phone.matches && view === 'list' && !q.value) {
-        // On a phone a chip in the list view opens that family and shows its jobs.
-        const fam = $<HTMLDetailsElement>(`[data-lx-fam="${line}"]`);
-        fam.open = true;
-      }
     }));
     views.forEach((b) => b.addEventListener('click', () => {
       view = b.dataset.lxView as 'map' | 'list';
@@ -542,32 +549,35 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
   .lx-note { font-size: 0.82rem; text-align: center; }
   .lx-back { display: none; }
 
-  /* The list. */
-  .lx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 6px; align-items: start; }
-  .lx-list[hidden] { display: none; }
-  .lx-fam { border: 2px solid var(--ink); border-left: 8px solid var(--c); background: var(--paper); }
-  .lx-fam summary {
-    display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px 4px; cursor: pointer; list-style: none;
-    font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.3rem;
+  /* The list: a pointer to All roles, or one line's jobs as tiles. */
+  .lx-list { display: grid; gap: 40px; margin-top: 10px; }
+  .lx-list[hidden], .lx-list [hidden] { display: none; }
+  .lx-all {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px; padding: 26px 28px;
+    border: 3px solid var(--ink); background: var(--paper); box-shadow: 8px 8px 0 var(--yellow); animation: rise 0.35s ease both;
   }
-  .lx-fam summary > span:first-child { flex: 1; }
-  .lx-fam summary::-webkit-details-marker { display: none; }
-  .lx-fam summary::after { content: '+'; font-family: var(--text); font-size: 1.35rem; line-height: 1; transition: transform 0.25s ease; }
-  .lx-fam[open] summary::after { transform: rotate(45deg); }
-  .lx-fam ul { list-style: none; margin: 0; padding: 0; }
-  .lx-fam[open] ul { animation: rise 0.3s ease; }
-  .lx-fam a {
-    display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 7px 14px 5px;
-    border-top: 1px solid var(--rule); text-decoration: none;
-    font-family: var(--sign); font-stretch: 88%; font-weight: 600; font-size: 1.12rem; line-height: 1.1;
+  .lx-all > div { flex: 1 1 420px; min-width: 0; }
+  .lx-all-h { font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.9rem; line-height: 1; }
+  .lx-all .quiet { margin-top: 8px; }
+  .lx-fam { animation: rise 0.35s ease both; }
+  .lx-fam-h {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; padding-bottom: 10px; border-bottom: 6px solid var(--c);
+    font-size: clamp(1.5rem, 2.4vw, 1.9rem); font-weight: 700; line-height: 1;
+  }
+  .lx-tiles { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .lx-tiles li { animation: rise 0.35s ease both; animation-delay: calc(var(--i, 0) * 25ms); }
+  .lx-tile {
+    position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 100%; min-height: 64px;
+    padding: 8px 14px 4px 22px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); text-decoration: none;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.22rem; line-height: 1.05;
     transition: background-color 0.15s ease, padding-left 0.15s ease;
   }
-  .lx-fam a:hover { background: var(--platform); padding-left: 20px; }
-  .lx-of { font-family: var(--text); font-size: 0.85rem; font-weight: 400; }
-  .lx-tag { flex: none; font-family: var(--text); font-size: 0.75rem; font-weight: 700; padding: 1px 7px; border: 1.5px solid var(--rule); color: var(--ink-2); }
-  .lx-tag.ok { border-color: var(--ink); color: var(--ink); }
-  .lx-none, .lx-legend { grid-column: 1 / -1; }
-  .lx-legend { font-size: 0.88rem; }
+  .lx-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--c); }
+  .lx-tile:hover { background: var(--platform); padding-left: 30px; }
+  .lx-ar { flex: none; font-family: var(--text); font-size: 1.05rem; opacity: 0; transform: translateX(-6px); transition: opacity 0.15s ease, transform 0.2s ease; }
+  .lx-tile:hover .lx-ar, .lx-tile:focus-visible .lx-ar { opacity: 1; transform: none; }
+  .lx-all-go { --c: var(--yellow); flex: none; height: auto; min-height: 56px; font-size: 1.3rem; }
+  .lx-all-go .lx-ar { opacity: 1; transform: none; }
 
   @media (max-width: 1100px) {
     .lx-line { grid-template-columns: minmax(0, 1fr) minmax(0, 320px); }
@@ -576,6 +586,10 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
   }
   @media (max-width: 760px) {
     .lx-chips { mask-image: linear-gradient(90deg, #000 88%, transparent); }
+    .lx-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .lx-tile { min-height: 58px; padding: 7px 10px 3px 18px; font-size: 1.1rem; }
+    .lx-tile:hover { padding-left: 24px; }
+    .lx-all { padding: 20px 18px; box-shadow: 5px 5px 0 var(--yellow); }
     .lx-line { grid-template-columns: minmax(0, 1fr); box-shadow: 5px 5px 0 var(--ink); }
     .lp-left { padding: 18px 16px; }
     .lp-mid { grid-template-columns: minmax(0, 1fr); padding: 20px 16px; gap: 0; }
@@ -603,6 +617,7 @@ const total = lines.reduce((n, l) => n + l.jobs.length, 0);
   }
   @media (prefers-reduced-motion: reduce) {
     .lp-st, .lp-jobs li { opacity: 1; transform: none; }
+    .lx-all, .lx-fam, .lx-tiles li { animation: none; }
     .lp-rail::before, .lp-rail::after, .lp-jobs ul::before { transform: none; }
   }
 </style>
