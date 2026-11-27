@@ -1,9 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
-import Picks from '../../components/Picks.astro';
+import MediaIcon from '../../components/MediaIcon.astro';
+import '../../styles/picks.css';
 import RolePlanner from '../../components/RolePlanner';
-import { content, jobStarts, listOf, plannerNodes } from '../../lib/site';
-import { BACKGROUND_GROUPS, TIERS } from '../../lib/schema';
+import { content, jobStarts, plannerNodes } from '../../lib/site';
+import { BACKGROUND_GROUPS, MEDIA, TIERS } from '../../lib/schema';
 import { stopDetails } from '../../lib/stops';
 import '../../styles/route.css';
 import '../../styles/planner.css';
@@ -22,37 +23,139 @@ const first = tool.requires.map((id) => byId.get(id)!);
 const inRoles = c.roles.flatMap((r) =>
   TIERS.filter((t) => r.tiers[t.id].includes(tool.id)).map((t) => ({ role: r, tier: t })),
 );
+
+// Topics link to their tool page when they're a tool, otherwise to their stop.
+const tools = new Set(c.toolGroups.flatMap((g) => g.tools));
+const link = (id: string) => ({ id, title: byId.get(id)!.title, href: tools.has(id) ? `/tools/${id}` : `/concepts/${id}` });
+const builds = tool.requires.map(link);
+const leads = detail.unlocks.map(link);
+
+const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+const n = tool.covers.length;
+const coversHead = `${WORDS[n] ?? n} ${n === 1 ? 'thing' : 'things'} to learn${n > 1 ? ', in order' : ''}.`;
+
+// Sections are numbered like the home page; a tool with no topic list skips that one.
+let k = 0;
+const num = () => String(++k).padStart(2, '0');
+const nCovers = n > 0 ? num() : '';
+const nLearn = num();
+const nRoute = num();
+const nRoles = inRoles.length > 0 ? num() : '';
+
+const LABEL = { read: 'Read', watch: 'Watch', practice: 'Practise' } as const;
+const CTA = { read: 'Open it', watch: 'Start watching', practice: 'Start practising' } as const;
+const MISSING = { read: 'No book or written guide picked yet.', watch: 'No video course picked yet.', practice: 'No practice set picked yet.' } as const;
+const issue = (t: string) => `https://github.com/shivemn/terminus/issues/new?title=${encodeURIComponent(t)}`;
+const TIER_TITLE = { hire: 'To get hired', firstYear: 'In the first year', extra: 'Good to have' } as const;
+// Routes first, then the job titles that build on them. A long group shows the
+// first SHOWN and folds the rest away (Programming basics is asked for by 200-odd).
+const SHOWN = 24;
+const tierGroups = TIERS.map((t) => {
+  const roles = inRoles.filter((x) => x.tier.id === t.id).map((x) => x.role);
+  roles.sort((a, b) => Number(!!a.variantOf) - Number(!!b.variantOf));
+  return { id: t.id, title: TIER_TITLE[t.id], roles, shown: roles.slice(0, SHOWN), rest: roles.slice(SHOWN) };
+}).filter((g) => g.roles.length);
+const titles = (k: number) => `${k} job ${k === 1 ? 'title' : 'titles'}`;
 ---
 
 <Base title={tool.title} description={`${tool.summary} Free books, videos and practice, and what to learn first.`} wide>
   <article data-area={tool.area}>
     <header class="tool-head">
-      <p class="crumbs quiet"><a href="/tools">Tools</a> / {shelf.title}</p>
-      <h1><span class="board">{tool.title}</span></h1>
-      <p class="tool-lede">{tool.summary}</p>
-      <p class="quiet">
-        About <span class="num">{tool.hours}</span> hours of study.{' '}
-        {first.length > 0 ? <>It builds on {listOf(first.map((x) => x.title))}.</> : <>You can start it straight away.</>}
-      </p>
+      <div class="tool-id">
+        <p class="crumbs quiet"><a href="/tools">Tools</a> / {shelf.title}</p>
+        <h1><span class="board">{tool.title}</span></h1>
+        <p class="tool-lede">{tool.summary}</p>
+      </div>
+      <dl class="glance" data-reveal>
+        <div><dt>Study time</dt><dd class="glance-big">About <span class="num">{tool.hours}</span> hours</dd></div>
+        <div>
+          <dt>Builds on</dt>
+          <dd>{builds.length ? <span class="chips">{builds.map((x) => <a class="chip" href={x.href}>{x.title}</a>)}</span> : <span class="quiet">Nothing. You can start straight away.</span>}</dd>
+        </div>
+        {leads.length > 0 && (
+          <div><dt>Leads to</dt><dd><span class="chips">{leads.map((x) => <a class="chip" href={x.href}>{x.title}</a>)}</span></dd></div>
+        )}
+        {inRoles.length > 0 && (
+          <div><dt>Asked for by</dt><dd><a class="glance-big" href="#roles">{titles(inRoles.length)} <span aria-hidden="true">&darr;</span></a></dd></div>
+        )}
+      </dl>
     </header>
 
-    {tool.covers.length > 0 && (
-      <section class="narrow" aria-labelledby="covers">
-        <h2 id="covers">What it covers</h2>
-        <p class="quiet section-note">In the order you'd learn it. When you can do each of these, you know this tool.</p>
-        <ol class="covers">
-          {tool.covers.map((x) => <li><b>{x.topic}</b><span>{x.detail}</span></li>)}
+    {n > 0 && (
+      <section aria-labelledby="covers">
+        <p class="sec-label"><span class="sec-n">{nCovers}</span>What it covers</p>
+        <h2 id="covers" class="h2">{coversHead}</h2>
+        <p class="quiet section-note">When you can do each of these, you know {tool.title}.</p>
+        <ol class="cover-grid">
+          {tool.covers.map((x, i) => (
+            <li data-reveal style={`--delay:${Math.min(i, 8) * 0.05}s`}>
+              <div class="cov" style={`--k:${((i + 1) / n).toFixed(3)}`}>
+                <span class="cov-bar" aria-hidden="true"></span>
+                <span class="cov-n num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                <b class="cov-t">{x.topic}</b>
+                <span class="cov-d">{x.detail}</span>
+              </div>
+            </li>
+          ))}
         </ol>
       </section>
     )}
 
-    <section class="narrow" aria-labelledby="learn">
-      <h2 id="learn">Where to learn it</h2>
-      <Picks title={tool.title} detail={detail} />
+    <section aria-labelledby="learn">
+      <p class="sec-label"><span class="sec-n">{nLearn}</span>Where to learn it</p>
+      <h2 id="learn" class="h2">{MEDIA.every((m) => detail.picks[m]) ? 'One free pick for each way of learning.' : 'Free picks, and where we still need one.'}</h2>
+      <div class="learn" data-reveal>
+        {MEDIA.map((m, i) => {
+          const src = detail.picks[m];
+          return (
+            <div class:list={['ltile', { missing: !src }]}>
+              <span class="ltile-k"><MediaIcon medium={m} /> {String(i + 1).padStart(2, '0')} &middot; {LABEL[m]}</span>
+              {src ? (
+                <>
+                  <p class="ltile-t">{src.title}</p>
+                  <p class="ltile-m">{src.author} &middot; {src.locator}</p>
+                  {src.why && <p class="ltile-m">{src.why}</p>}
+                  {src.note && <p class="ltile-m faint">{src.note}</p>}
+                  {(!src.free || !src.verified) && (
+                    <p class="flags">
+                      {!src.free && <span class="flag paid">Paid</span>}
+                      {!src.verified && <span class="flag" title="Nobody has opened it yet to confirm the chapter or lecture numbers.">Section not checked yet</span>}
+                    </p>
+                  )}
+                  <a class="ltile-l" href={src.url} rel="noopener">{CTA[m]} <span aria-hidden="true">&nearr;</span></a>
+                </>
+              ) : (
+                <>
+                  <p class="ltile-m">{MISSING[m]}</p>
+                  <a class="ltile-l" href={issue(`${LABEL[m]} pick for ${tool.title}`)} rel="noopener">Suggest one <span aria-hidden="true">&nearr;</span></a>
+                </>
+              )}
+            </div>
+          );
+        })}
+        {detail.others.length > 0 && (
+          <div class="ltile">
+            <span class="ltile-k">04 &middot; Also good</span>
+            <ul class="others">
+              {detail.others.map((o) => (
+                <li>
+                  <a class="ltile-t" href={o.url} rel="noopener">{o.title}</a>
+                  <p class="ltile-m">
+                    {LABEL[o.medium]}{o.role === 'deep-dive' ? ', to go deeper' : ''} &middot; {o.locator}
+                    {!o.free && <span class="flag paid">Paid</span>}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      <p class="report faint">Wrong chapter, dead link, or know something better? <a href={issue(`Problem with a pick for ${tool.title}`)} rel="noopener">Tell us on GitHub</a>.</p>
     </section>
 
     <section aria-labelledby="route">
-      <h2 id="route">Your route to {tool.title}</h2>
+      <p class="sec-label"><span class="sec-n">{nRoute}</span>Your route to {tool.title}</p>
+      <h2 id="route" class="h2">From where you are to {tool.title}.</h2>
       <p class="quiet route-lede">
         {first.length > 0
           ? 'Pick where you’re starting from. Anything your background already covers is left out, and the rest is put in order.'
@@ -67,45 +170,180 @@ const inRoles = c.roles.flatMap((r) =>
         tiers={TIERS}
         backgrounds={c.backgrounds}
         backgroundGroups={BACKGROUND_GROUPS}
-    jobs={jobStarts(c)}
+        jobs={jobStarts(c)}
       />
     </section>
 
-    {
-      inRoles.length > 0 && (
-        <section class="narrow" aria-labelledby="roles">
-          <h2 id="roles">Which roles ask for it</h2>
-          <ul class="role-uses">
-            {inRoles.map(({ role, tier }) => (
-              <li>
-                <a href={`/roles/${role.id}`}>{role.title}</a>
-                <span class="quiet"> {tier.id === 'hire' ? 'to get hired' : tier.id === 'firstYear' ? 'in the first year' : 'good to have'}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
+    {inRoles.length > 0 && (
+      <section id="roles" aria-labelledby="roles-heading">
+        <p class="sec-label"><span class="sec-n">{nRoles}</span>Which roles ask for it</p>
+        <h2 id="roles-heading" class="h2">{titles(inRoles.length).replace(/^./, (x) => x.toUpperCase())} {inRoles.length === 1 ? 'asks' : 'ask'} for {tool.title}.</h2>
+        <p class="quiet section-note">Grouped by when they need it. The colour on each box is its line.</p>
+        {tierGroups.map((g) => (
+          <>
+            <h3 class="tier-h">{g.title} <span class="tier-n num">{titles(g.roles.length)}</span></h3>
+            <ul class="role-tiles">
+              {g.shown.map((r, i) => (
+                <li data-reveal style={`--delay:${Math.min(i, 15) * 0.025}s`}>
+                  <a class="rtile" href={`/roles/${r.id}`} style={`--c: var(--l-${r.family}, var(--ink-3))`}>
+                    {r.title}<span class="rtile-ar" aria-hidden="true">&rarr;</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            {g.rest.length > 0 && (
+              <details class="more-tiles">
+                <summary>Show {g.rest.length} more</summary>
+                <ul class="role-tiles">
+                  {g.rest.map((r) => (
+                    <li>
+                      <a class="rtile" href={`/roles/${r.id}`} style={`--c: var(--l-${r.family}, var(--ink-3))`}>
+                        {r.title}<span class="rtile-ar" aria-hidden="true">&rarr;</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
+        ))}
+      </section>
+    )}
 
-    <p class="narrow more-link quiet">
-      What it needs and what it leads to: <a href={`/concepts/${tool.id}`}>{tool.title} on the map</a>.
+    <p class="map-link">
+      <a class="map-btn" href={`/concepts/${tool.id}`}>{tool.title} on the map <span aria-hidden="true">&rarr;</span></a>
+      <span class="quiet">What it needs, and what it leads to.</span>
     </p>
   </article>
 </Base>
 
 <style>
-  .tool-head { max-width: 800px; display: grid; gap: 14px; }
+  .tool-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 26px 40px; align-items: start; }
+  .tool-id { display: grid; gap: 14px; min-width: 0; }
   .tool-head h1 { font-size: clamp(2.2rem, 7vw, 3.8rem); }
   .crumbs { font-size: 0.95rem; }
   .crumbs a { color: inherit; }
-  .tool-lede { font-size: 1.25rem; line-height: 1.5; max-width: 56ch; }
-  section { margin-top: 44px; }
-  .covers { max-width: 72ch; margin-top: 10px; border-top: 3px solid var(--ink); }
-  .section-note { margin-top: 2px; }
-  h2 { margin-bottom: 8px; }
-  .narrow { max-width: 780px; }
-  .route-lede { max-width: 60ch; margin-bottom: 18px; }
-  .role-uses { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
-  .role-uses a { font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.15rem; }
-  .more-link { margin-top: 40px; }
+  .tool-lede { font-size: 1.25rem; line-height: 1.5; max-width: 46ch; }
+
+  /* At a glance */
+  .glance { margin: 0; border: 3px solid var(--ink); background: var(--paper); box-shadow: 8px 8px 0 var(--yellow); }
+  .glance > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 18px; border-top: 1.5px solid var(--rule); }
+  .glance > div:first-child { border-top: 0; }
+  .glance dt { font-size: 0.88rem; color: var(--ink-2); }
+  .glance dd { margin: 0; }
+  .glance-big { font-family: var(--sign); font-stretch: 88%; font-weight: 720; font-size: 1.5rem; line-height: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px 1px; border: 2px solid var(--ink); background: var(--paper);
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.05rem; line-height: 1; text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .chip:hover { background: var(--yellow); color: #000; transform: translateY(-2px); }
+
+  /* Sections, numbered like the home page */
+  section { margin-top: clamp(64px, 8vw, 96px); scroll-margin-top: 80px; }
+  .sec-label {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.15rem; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .sec-n {
+    flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding-top: 3px;
+    border: 2.5px solid var(--ink); border-radius: 50%; background: var(--yellow); color: #000; font-weight: 750; font-size: 1.2rem; letter-spacing: 0;
+  }
+  .h2 { margin-top: 10px; font-size: clamp(2.1rem, 4.2vw, 3rem); font-weight: 700; line-height: 0.95; text-wrap: balance; }
+  .section-note { margin-top: 8px; }
+
+  /* What it covers: one box per topic. The bar on top fills as you go through. */
+  .cover-grid { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .cov {
+    position: relative; display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 18px 18px 16px;
+    border: 2px solid var(--ink); background: var(--paper); transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .cov:hover { transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--yellow); }
+  .cov-bar { position: absolute; left: -2px; right: -2px; top: -2px; height: 7px; background: var(--ink); transform-origin: left; transform: scaleX(var(--k)); transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s ease; }
+  .cov:hover .cov-bar { transform: scaleX(1); background: var(--yellow); }
+  .cov-n { font-family: var(--sign); font-weight: 720; font-size: 2.6rem; line-height: 0.8; color: var(--ink-3); transition: color 0.2s ease; }
+  .cov:hover .cov-n { color: var(--ink); }
+  .cov-t { margin-top: 6px; font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.4rem; line-height: 1.05; }
+  .cov-d { font-size: 0.95rem; color: var(--ink-2); }
+
+  /* Where to learn it: one framed card of tiles, like the stop on the home page. */
+  .learn {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5px; margin-top: 22px;
+    border: 3px solid var(--ink); background: var(--ink); box-shadow: 10px 10px 0 var(--yellow);
+  }
+  .ltile { display: flex; flex-direction: column; gap: 6px; padding: 24px 26px 22px; background: var(--paper); min-width: 0; }
+  .ltile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .ltile-k { display: flex; align-items: center; gap: 8px; font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1.02rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+  .ltile-k :global(svg) { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--line, var(--ink)); stroke-width: 2; }
+  .ltile-k :global(svg .fill) { fill: var(--line, var(--ink)); stroke: none; }
+  .ltile-t { font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: clamp(1.4rem, 2vw, 1.75rem); line-height: 1.02; }
+  a.ltile-t { text-decoration-thickness: 2px; text-underline-offset: 0.12em; }
+  .ltile-m { font-size: 0.95rem; color: var(--ink-2); }
+  .ltile-l { margin-top: auto; padding-top: 10px; font-weight: 700; font-size: 0.95rem; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .ltile-l span { transition: transform 0.2s ease; }
+  .ltile-l:hover span { transform: translate(3px, -3px); }
+  .missing .ltile-m { color: var(--ink-3); }
+  .others { list-style: none; padding: 0; margin: 2px 0 0; display: grid; gap: 12px; }
+  .others .flag { margin-left: 8px; }
+  .report { font-size: 0.9rem; margin-top: 18px; }
+  .route-lede { max-width: 60ch; margin: 10px 0 18px; }
+
+  /* Which roles ask for it: tiles grouped by when they need it. */
+  .tier-h {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 30px; padding-bottom: 8px; border-bottom: 3px solid var(--ink);
+    font-size: 1.6rem; font-weight: 700; line-height: 1;
+  }
+  .tier-n { font-family: var(--text); font-size: 0.82rem; font-weight: 700; color: var(--ink-2); }
+  .role-tiles { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .rtile {
+    position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 100%; min-height: 60px;
+    padding: 8px 14px 4px 22px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); text-decoration: none;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.2rem; line-height: 1.05;
+    transition: background-color 0.15s ease, padding-left 0.15s ease;
+  }
+  .rtile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--c); }
+  .rtile:hover { background: var(--platform); padding-left: 30px; }
+  .rtile-ar { flex: none; font-family: var(--text); font-size: 1.05rem; opacity: 0; transform: translateX(-6px); transition: opacity 0.15s ease, transform 0.2s ease; }
+  .rtile:hover .rtile-ar, .rtile:focus-visible .rtile-ar { opacity: 1; transform: none; }
+
+  .more-tiles { margin-top: 12px; }
+  .more-tiles summary {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 16px 2px; border: 2px solid var(--ink); background: var(--paper);
+    font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.15rem; cursor: pointer; list-style: none;
+    transition: background-color 0.15s ease;
+  }
+  .more-tiles summary::-webkit-details-marker { display: none; }
+  .more-tiles summary::after { content: '+'; font-family: var(--text); transition: transform 0.25s ease; }
+  .more-tiles[open] summary::after { transform: rotate(45deg); }
+  .more-tiles summary:hover { background: var(--platform); }
+  .more-tiles[open] .role-tiles { animation: rise 0.3s ease; }
+  .map-link { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 56px; }
+  .map-btn {
+    display: inline-flex; gap: 10px; align-items: center; padding: 14px 22px 9px; border: 3px solid var(--ink); background: var(--paper);
+    font-family: var(--sign); font-stretch: 85%; font-weight: 720; font-size: 1.35rem; line-height: 1; text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .map-btn:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--ink); }
+
+  @media (max-width: 960px) {
+    .tool-head { grid-template-columns: minmax(0, 1fr); }
+    .cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .cover-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .cov { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 14px; padding: 14px 14px 12px; }
+    .cov-n { font-size: 2.1rem; }
+    .cov-t { margin: 0; flex: 1 1 60%; }
+    .cov-d { flex-basis: 100%; }
+    .learn { grid-template-columns: minmax(0, 1fr); box-shadow: 6px 6px 0 var(--yellow); }
+    .ltile { padding: 18px 16px; }
+    .role-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .rtile { min-height: 56px; padding: 7px 10px 3px 18px; font-size: 1.08rem; }
+    .rtile:hover { padding-left: 24px; }
+    .glance > div { grid-template-columns: 96px minmax(0, 1fr); padding: 11px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cov, .cov-bar, .chip, .rtile, .rtile-ar, .map-btn { transition: none; }
+  }
 </style>

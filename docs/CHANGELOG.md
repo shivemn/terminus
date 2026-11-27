@@ -1,5 +1,9 @@
 # Changelog
 
+## 27 November 2026
+
+- **Tool pages are boxes now.** A card at the top gives the study time, what the tool builds on and leads to (as links), and how many job titles ask for it. The sections are numbered like the home page. Each topic in "What it covers" is a numbered box, with a bar that fills as you go through them. "Where to learn it" is one framed card of Read, Watch and Practise tiles, plus any other options. "Which roles ask for it" is tiles grouped by when the job needs it, coloured by line; long groups show 24 and fold the rest away. Concept pages keep their old picks layout.
+
 ## 26 November 2026
 
 - **The home page's List view is now tiles.** Pick a line and its jobs appear as small boxes under a coloured heading, one job name each, rippling in. With All lines picked, the list points to the All roles page instead of repeating it. A search still shows matching tiles from every line. Phones open on that pointer, with the line chips just above it.
