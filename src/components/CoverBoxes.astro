@@ -1,0 +1,51 @@
+---
+// "What it covers" on tool and stop pages: one numbered box per topic, with a
+// bar on top that fills as you go through them.
+import type { Concept } from '../lib/schema';
+
+interface Props {
+  covers: Concept['covers'];
+}
+const { covers } = Astro.props;
+const n = covers.length;
+---
+
+<ol class="cover-grid">
+  {covers.map((x, i) => (
+    <li data-reveal style={`--delay:${Math.min(i, 8) * 0.05}s`}>
+      <div class="cov" style={`--k:${((i + 1) / n).toFixed(3)}`}>
+        <span class="cov-bar" aria-hidden="true"></span>
+        <span class="cov-n num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+        <b class="cov-t">{x.topic}</b>
+        <span class="cov-d">{x.detail}</span>
+      </div>
+    </li>
+  ))}
+</ol>
+
+<style>
+  /* What it covers: one box per topic. The bar on top fills as you go through. */
+  .cover-grid { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .cov {
+    position: relative; display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 18px 18px 16px;
+    border: 2px solid var(--ink); background: var(--paper); transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .cov:hover { transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--yellow); }
+  .cov-bar { position: absolute; left: -2px; right: -2px; top: -2px; height: 7px; background: var(--ink); transform-origin: left; transform: scaleX(var(--k)); transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s ease; }
+  .cov:hover .cov-bar { transform: scaleX(1); background: var(--yellow); }
+  .cov-n { font-family: var(--sign); font-weight: 720; font-size: 2.6rem; line-height: 0.8; color: var(--ink-3); transition: color 0.2s ease; }
+  .cov:hover .cov-n { color: var(--ink); }
+  .cov-t { margin-top: 6px; font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.4rem; line-height: 1.05; }
+  .cov-d { font-size: 0.95rem; color: var(--ink-2); }
+
+  @media (max-width: 960px) {
+    .cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .cover-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .cov { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 14px; padding: 14px 14px 12px; }
+    .cov-n { font-size: 2.1rem; }
+    .cov-t { margin: 0; flex: 1 1 60%; }
+    .cov-d { flex-basis: 100%; }
+  }
+</style>

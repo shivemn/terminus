@@ -5,6 +5,7 @@ import { content, jobStarts, listOf, plannerNodes } from '../../lib/site';
 import { interviewLinks, jobLinks, loopFor, searchTerm, sitesFor, startupMatch } from '../../lib/jobs';
 import { BACKGROUND_GROUPS, TIERS } from '../../lib/schema';
 import { certificationsFor, fareText } from '../../lib/certifications';
+import { midSentence } from '../../lib/text';
 import '../../styles/route.css';
 import '../../styles/planner.css';
 import '../../styles/map.css';
@@ -41,31 +42,61 @@ const evidence = role.evidence ?? base?.evidence;
 const isJob = role.kind !== 'exam';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
+// Sections are numbered like the home page.
+const nRoute = '01';
+const nJob = isJob ? '02' : '';
+const nOpen = isJob ? '03' : '';
+const nAsk = isJob ? '04' : '';
+const listingsHref = `https://github.com/shivemn/terminus/blob/main/research/postings/${base && !role.evidence ? base.id : role.id}.csv`;
+const SIB = 6;
 ---
 
 <Base title={role.title} description={role.summary} wide>
-  <header class="role-head">
-    <p class="crumbs quiet"><a href="/roles">Roles</a> / {family.title}</p>
-    <h1><span class="board">{role.title}</span></h1>
-    <p class="lede quiet">{role.summary}</p>
-    {base && (
-      <p class="route-of">
-        The route is <a href={`/roles/${base.id}`}>{base.title}</a>
-        {added.length > 0 ? `, with ${listOf(added)} on the hiring list` : ''}{removed.length > 0 ? ` instead of ${listOf(removed)}` : ''}.
-      </p>
-    )}
-    {siblings.length > 0 && (
-      <p class="also quiet">
-        {base ? 'Other titles on this route: ' : 'Also posted as: '}
-        {siblings.slice(0, 14).map((r, i) => (
-          <>{i > 0 && ', '}<a href={`/roles/${r.id}`}>{r.title}</a></>
-        ))}
-        {siblings.length > 14 && `, and ${siblings.length - 14} more`}.
-      </p>
-    )}
-    {isJob && <p class="jump"><a href="#the-job">{posting ? 'What the job looks like, from real listings' : 'See real openings for this job'}</a></p>}
-    {
-      evidence ? (
+  <header class="k-head role-head">
+    <div class="k-head-id">
+      <p class="k-crumbs"><a href="/roles">Roles</a> / {family.title}</p>
+      <h1><span class="board">{role.title}</span></h1>
+      <p class="k-lede">{role.summary}</p>
+      {base && (
+        <p class="route-of">
+          The route is <a href={`/roles/${base.id}`}>{base.title}</a>
+          {added.length > 0 ? `, with ${listOf(added)} on the hiring list` : ''}{removed.length > 0 ? ` instead of ${listOf(removed)}` : ''}.
+        </p>
+      )}
+    </div>
+    <dl class="k-glance" data-family={role.family}>
+      <div><dt>Line</dt><dd><a class="k-tile" href={`/roles#${family.id}`} style="--c: var(--family)">{family.title}</a></dd></div>
+      <div>
+        <dt>{isJob ? 'Hiring list' : 'Syllabus'}</dt>
+        <dd class="k-big"><span class="num">{role.tiers.hire.length}</span> {isJob ? 'stops' : 'topics'}</dd>
+      </div>
+      <div>
+        <dt>{evidence ? 'Checked against' : 'Status'}</dt>
+        <dd>
+          {evidence ? (
+            <a class="k-big" href={listingsHref}><span class="num">{evidence.postings}</span> listings <small>{monthName(evidence.collected)}</small></a>
+          ) : role.kind === 'exam' ? (
+            <span class="k-tag quiet">Official syllabus</span>
+          ) : (
+            <span class="k-tag quiet">Draft</span>
+          )}
+        </dd>
+      </div>
+      {siblings.length > 0 && (
+        <div>
+          <dt>{base ? 'Other titles on this route' : 'Also posted as'}</dt>
+          <dd>
+            <ul class="k-tiles">
+              {siblings.slice(0, SIB).map((r) => <li><a class="k-tile" href={`/roles/${r.id}`} style="--c: var(--family)">{r.title}</a></li>)}
+              {siblings.length > SIB && <li class="more-sib"><a href={`/roles#${family.id}`}>and {siblings.length - SIB} more</a></li>}
+            </ul>
+          </dd>
+        </div>
+      )}
+    </dl>
+  </header>
+  {
+    evidence ? (
         <p class="evidence">
           {base && !role.evidence ? (
             <>
@@ -93,40 +124,45 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
         </p>
       )
     }
-  </header>
 
-  <RolePlanner
-    client:load
-    role={{ id: role.id, title: role.title, tiers: role.tiers, projects: role.projects }}
-    concepts={plannerNodes(c)}
-    areas={c.areas}
-    tiers={TIERS}
-    backgrounds={c.backgrounds}
-    backgroundGroups={BACKGROUND_GROUPS}
-    jobs={jobStarts(c)}
-  />
+  <section class="k-sec route-sec" aria-labelledby="route-title">
+    <p class="k-label"><span class="k-n">{nRoute}</span>Your route</p>
+    <h2 id="route-title" class="k-h2">From where you are to {midSentence(role.title)}.</h2>
+    {isJob && <p class="k-note jump"><a href="#the-job">{posting ? 'What the job looks like, from real listings' : 'See real openings for this job'}</a> <span aria-hidden="true">&darr;</span></p>}
+    <RolePlanner
+      client:load
+      role={{ id: role.id, title: role.title, tiers: role.tiers, projects: role.projects }}
+      concepts={plannerNodes(c)}
+      areas={c.areas}
+      tiers={TIERS}
+      backgrounds={c.backgrounds}
+      backgroundGroups={BACKGROUND_GROUPS}
+      jobs={jobStarts(c)}
+    />
+  </section>
 
   {
     isJob && (
-      <section class="job" id="the-job" aria-labelledby="the-job-title">
-        <h2 id="the-job-title">What the job looks like</h2>
+      <section class="k-sec job" id="the-job" aria-labelledby="the-job-title">
+        <p class="k-label"><span class="k-n">{nJob}</span>What the job looks like</p>
+        <h2 id="the-job-title" class="k-h2">{posting ? `From ${posting.listings} real listings.` : 'What the listings say.'}</h2>
         {posting ? (
           <>
-            <p class="job-source quiet">
+            <p class="k-note job-source">
               Summarised in our own words from {posting.listings} {evidence?.region.startsWith('Global') ? '' : 'entry-level '}listings on {posting.source}, {monthName(posting.collected)}.
               {' '}{posting.method}
             </p>
-            <div class="job-grid">
-              <div>
-                <h3>What you'd do</h3>
-                <ul class="job-doing">{posting.doing.map((d) => <li>{d}</li>)}</ul>
+            <div class="k-two">
+              <div class="k-box">
+                <h3 class="k-box-t">What you'd do</h3>
+                <ol class="job-doing">{posting.doing.map((d, i) => <li><b class="num">{String(i + 1).padStart(2, '0')}</b><span>{d}</span></li>)}</ol>
                 <h3>Titles you'll see</h3>
                 <p>{posting.titles.join(', ')}.</p>
                 <h3>Experience asked for</h3>
                 <p>{posting.experience}</p>
               </div>
-              <div>
-                <h3>What the listings ask for</h3>
+              <div class="k-box y">
+                <h3 class="k-box-t">What the listings ask for</h3>
                 <p class="quiet small">Out of the {posting.tagged} listings that named skills. Listings show only a few tags, so the real numbers are higher.</p>
                 <ul class="asks">
                   {posting.asks.map((a) => (
@@ -141,24 +177,32 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
             </div>
           </>
         ) : (
-          <p class="quiet">We haven't summarised real listings for this role yet. The searches below show what's open today.</p>
+          <p class="k-note">We haven't summarised real listings for this role yet. The searches below show what's open today.</p>
         )}
+      </section>
+    )
+  }
+
+  {
+    isJob && (
+      <section class="k-sec" id="openings" aria-labelledby="openings-title">
+        <p class="k-label"><span class="k-n">{nOpen}</span>See real openings</p>
+        <h2 id="openings-title" class="k-h2">What's open today.</h2>
         <div class="openings">
-          <h3>See real openings now</h3>
           <div class="site-groups">
             {links.map((g) => (
-              <div class="site-group">
+              <div class="k-box site-group">
                 <h4>{g.title}</h4>
                 <p class="boards">
                   {g.links.map((b) => (
-                    <a class="board-link" href={b.url} rel="noopener" target="_blank">{b.name}{b.note && <span class="quiet"> ({b.note})</span>}</a>
+                    <a class="k-tile board-link" href={b.url} rel="noopener" target="_blank">{b.name}{b.note && <span class="quiet"> ({b.note})</span>}</a>
                   ))}
                 </p>
               </div>
             ))}
           </div>
           {yc && (
-            <div class="yc-note">
+            <div class="k-box yc-note">
               <h4>At startups</h4>
               <p>
                 In {monthOf(yc.collected)}, startups funded by Y Combinator and based in India had {yc.n}{' '}
@@ -172,7 +216,22 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
               </p>
             </div>
           )}
-          <div class="interview-note">
+          <p class="quiet small">Searches for “{term.replace(/\s+fresher$/i, '')}”. Read a few listings end to end: the skills repeat quickly.</p>
+          {role.reference && (
+            <p class="small">Official description: <a href={role.reference.url} rel="noopener">{role.reference.title}</a></p>
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    isJob && (
+      <section class="k-sec" id="interviews" aria-labelledby="interviews-title">
+        <p class="k-label"><span class="k-n">{nAsk}</span>Interviews and certificates</p>
+        <h2 id="interviews-title" class="k-h2">What they'll ask, and what helps.</h2>
+        <div class="k-two">
+          <div class="k-box interview-note">
             <h4>Interviews</h4>
             <p>
               {loop ? (
@@ -191,7 +250,7 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
             </p>
           </div>
           {certs.length > 0 && (
-            <div class="interview-note cert-note">
+            <div class="k-box interview-note cert-note">
               <h4>Certificates worth having</h4>
               <ul>
                 {certs.map((x) => (
@@ -203,10 +262,6 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
               </ul>
               <p class="small">None of these replaces showing your work. <a href="/certifications">All certifications, and why each one counts</a>.</p>
             </div>
-          )}
-          <p class="quiet small">Searches for “{term.replace(/\s+fresher$/i, '')}”. Read a few listings end to end: the skills repeat quickly.</p>
-          {role.reference && (
-            <p class="small">Official description: <a href={role.reference.url} rel="noopener">{role.reference.title}</a></p>
           )}
         </div>
       </section>
@@ -226,49 +281,40 @@ const monthName = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.sl
 </Base>
 
 <style>
-  .role-head { max-width: 800px; display: grid; gap: 12px; }
-  .role-head h1 { font-size: clamp(2.2rem, 7vw, 3.8rem); }
   /* The job's name carries over from the link you came from into this board. */
   .role-head h1 .board { view-transition-name: role-board; }
-  .crumbs { font-size: 0.95rem; }
-  .crumbs a { color: inherit; }
-  .lede { font-size: 1.2rem; max-width: 58ch; }
-  .evidence { font-size: 0.95rem; color: var(--ink-2); padding: 6px 12px; border-left: 5px solid var(--programming); background: var(--platform); }
+  .route-of { font-weight: 600; }
+  .more-sib { align-self: center; font-size: 0.85rem; }
+  .evidence { margin-top: 26px; max-width: 90ch; font-size: 0.95rem; color: var(--ink-2); padding: 10px 14px; border: 2px solid var(--ink); border-left: 8px solid var(--programming); background: var(--paper); }
   .evidence.draft { border-left-color: var(--warn); }
   .static-list { margin-top: 24px; }
-  .jump { font-weight: 600; }
-  .route-of { font-weight: 600; }
-  .also { max-width: 90ch; font-size: 0.97rem; }
-
-  .job { margin-top: 56px; padding-top: 28px; border-top: 4px solid var(--ink); }
-  .job h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); }
-  .job h3 { font-size: 1.25rem; margin: 22px 0 8px; }
-  .job-source { max-width: 70ch; margin-top: 8px; }
+  .jump { font-weight: 600; margin-bottom: 18px; }
+  .route-sec :global(.planner) { margin-top: 0; }
   .small { font-size: 0.92rem; }
-  .job-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 64px; }
-  .job-grid p, .job-doing { max-width: 64ch; }
-  @media (max-width: 760px) { .job-grid { grid-template-columns: 1fr; } }
-  .job-doing { padding-left: 1.2em; display: grid; gap: 6px; }
+
+  .job-source { max-width: 76ch; }
+  .k-box h3 { margin: 0 0 10px; }
+  .k-box h3 ~ h3 { margin-top: 22px; font-size: 1.25rem; }
+  .job-doing { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .job-doing li { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: start; }
+  .job-doing b { font-family: var(--sign); font-weight: 720; font-size: 1.7rem; line-height: 0.85; color: var(--ink-3); }
   .asks { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
   .asks li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
-  .ask-bar { grid-column: 1 / -1; grid-row: 2; height: 10px; background: var(--platform); border: 1.5px solid var(--ink); }
-  .ask-bar span { display: block; height: 100%; background: var(--yellow); border-right: 1.5px solid var(--ink); }
-  .ask-n { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 0.92rem; white-space: nowrap; }
-  .openings { margin-top: 28px; padding: 16px 18px; background: var(--platform); border-left: 5px solid var(--yellow); }
-  .openings h3 { margin-top: 0; }
-  .site-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px 28px; margin: 10px 0 14px; }
-  .site-group h4 { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.05rem; color: var(--ink-2); margin: 0; }
-  .boards { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 0; }
-  .interview-note { max-width: 86ch; margin: 6px 0 14px; padding: 12px 14px; border: 2px solid var(--ink); background: var(--paper); }
-  .interview-note h4 { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.05rem; color: var(--ink-2); margin: 0 0 4px; }
+  .ask-bar { grid-column: 1 / -1; grid-row: 2; height: 12px; background: var(--paper); border: 1.5px solid var(--ink); }
+  .ask-bar span { display: block; height: 100%; background: var(--yellow); border-right: 1.5px solid var(--ink); transform-origin: left; }
+  .motion .asks .ask-bar span { animation: grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @keyframes grow { from { transform: scaleX(0); } }
+  .ask-n { font-family: var(--sign); font-weight: 720; font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .openings { margin-top: 20px; }
+  .site-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin: 0 0 16px; }
+  .site-group h4, .interview-note h4, .yc-note h4 { font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.35rem; line-height: 1.05; margin: 0 0 10px; }
+  .boards { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+  .board-link { --c: var(--yellow); }
+  .yc-note { margin: 0 0 16px; max-width: 90ch; }
   .interview-note p { margin: 0; }
-  .interview-note p + p { margin-top: 6px; }
-  .cert-note ul { margin: 0 0 6px; padding-left: 1.2em; }
-  .cert-note li { margin-bottom: 2px; }
-  .yc-note { max-width: 86ch; margin: 6px 0 14px; padding: 12px 14px; border: 2px solid var(--ink); background: var(--paper); }
-  .yc-note h4 { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.05rem; color: var(--ink-2); margin: 0 0 4px; }
+  .interview-note p + p, .yc-note p + p { margin-top: 8px; }
   .yc-note p { margin: 0; }
-  .yc-note p + p { margin-top: 6px; }
-  .board-link { display: inline-block; padding: 6px 12px; border: 2px solid var(--ink); color: var(--ink); text-decoration: none; font-weight: 600; background: var(--paper); }
-  .board-link:hover, .board-link:focus-visible { background: var(--yellow); color: #000; }
+  .cert-note ul { margin: 0 0 8px; padding-left: 1.2em; }
+  .cert-note li { margin-bottom: 4px; }
 </style>

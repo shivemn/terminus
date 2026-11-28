@@ -1,5 +1,9 @@
 # Changelog
 
+## 28 November 2026
+
+- **Every page is built from the same kit as the home and tool pages.** All roles, each role page, Tools, each stop, Practice, Certifications, Designs, each design, How routes are checked and the not-found page now open with the yellow sign and an at-a-glance card, use a row of chips to jump between sections, and number their sections like the home page. Lists became cards that lift on hover, with a coloured bar for their line or area; short lists of jobs and topics became small tiles. Role pages put what the job looks like, real openings, and interviews and certificates in their own boxes, with the skills from listings as yellow bars. Stop pages now use the tool page layout. The shared styles are the k- classes in global.css, and the topic boxes, learn tiles and role tiles are components the tool and stop pages share.
+
 ## 27 November 2026
 
 - **Tool pages are boxes now.** A card at the top gives the study time, what the tool builds on and leads to (as links), and how many job titles ask for it. The sections are numbered like the home page. Each topic in "What it covers" is a numbered box, with a bar that fills as you go through them. "Where to learn it" is one framed card of Read, Watch and Practise tiles, plus any other options. "Which roles ask for it" is tiles grouped by when the job needs it, coloured by line; long groups show 24 and fold the rest away. Concept pages keep their old picks layout.

@@ -43,36 +43,46 @@ const loops = c.interviews.map((l) => ({
   title="Practice"
   description="Free places to practise, from LeetCode and Kaggle to TryHackMe and MIT's systems labs, and which topics each one tests."
 >
-  <h1><span class="board">Practice</span></h1>
-  <p class="lede quiet">
-    Reading and watching tell you that you've seen something. Practice tells you whether you can do it.{' '}
-    These {count} places are free (a few need a free account), and each one lists the stops it tests, so you know when to use it.
-    For job interviews, see <a href="#interviews">how each kind of interview goes</a>.
-  </p>
+  <header class="k-head">
+    <div class="k-head-id">
+      <h1><span class="board">Practice</span></h1>
+      <p class="k-lede">
+        Reading and watching tell you that you've seen something. Practice tells you whether you can do it. These {count} places
+        are free (a few need a free account), and each one lists the stops it tests, so you know when to use it.
+      </p>
+    </div>
+    <dl class="k-glance">
+      <div><dt>Places to practise</dt><dd class="k-big num">{count}</dd></div>
+      <div><dt>Groups</dt><dd class="k-big num">{groups.length}</dd></div>
+      <div><dt>Then</dt><dd><a class="k-big" href="#interviews">How {loops.length} kinds of interview go <span aria-hidden="true">&darr;</span></a></dd></div>
+    </dl>
+  </header>
 
-  <nav class="jump" aria-label="Groups">
-    <a class="jump-interviews" href="#interviews">Interviews</a>
-    {groups.map((g) => <a href={`#practice-${g.id}`}>{g.title}</a>)}
+  <nav class="k-chips" aria-label="Groups">
+    {groups.map((g) => <a class="k-chip" href={`#practice-${g.id}`}><i></i>{g.title} <b>{g.items.length}</b></a>)}
+    <a class="k-chip on" href="#interviews"><i></i>Interviews <b>{loops.length}</b></a>
   </nav>
 
   {
-    groups.map((g) => (
-      <section aria-labelledby={`practice-${g.id}`}>
-        <h2 id={`practice-${g.id}`}>{g.title}</h2>
-        <ul class="platforms">
+    groups.map((g, gi) => (
+      <section class="k-sec" id={`practice-${g.id}`} aria-labelledby={`practice-${g.id}-title`}>
+        <p class="k-label"><span class="k-n">{String(gi + 1).padStart(2, '0')}</span><span id={`practice-${g.id}-title`}>{g.title}</span></p>
+        <ul class="k-grid">
           {g.items.map((r) => (
             <li>
-              <a class="platform-name" href={r.url} rel="noopener">{r.title}</a>
-              <p class="faint">{r.author}</p>
-              {r.note && <p class="quiet">{r.note}</p>}
-              {r.stops.length > 0 && (
-                <p class="tests">
-                  <span class="tests-label">Practises</span>
-                  {r.stops.map((s) => (
-                    <a class="chip" data-area={s.area} href={hrefOf(s.id)}>{s.title}</a>
-                  ))}
-                </p>
-              )}
+              <div class="k-card">
+                <a class="k-card-t" href={r.url} rel="noopener">{r.title} <span class="ext" aria-hidden="true">&nearr;</span></a>
+                <p class="k-card-m">{r.author}</p>
+                {r.note && <p class="k-card-s">{r.note}</p>}
+                {r.stops.length > 0 && (
+                  <ul class="k-tiles k-card-f">
+                    <li class="k-tiles-label">Practises</li>
+                    {r.stops.map((s) => (
+                      <li><a class="k-tile" data-area={s.area} style="--c: var(--line)" href={hrefOf(s.id)}>{s.title}</a></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -80,18 +90,19 @@ const loops = c.interviews.map((l) => ({
     ))
   }
 
-  <section class="interviews" id="interviews" aria-labelledby="interviews-title">
-    <h2 id="interviews-title">Interviews</h2>
-    <p class="quiet interviews-lede">
+  <section class="k-sec interviews" id="interviews" aria-labelledby="interviews-title">
+    <p class="k-label"><span class="k-n">{String(groups.length + 1).padStart(2, '0')}</span>Interviews</p>
+    <h2 id="interviews-title" class="k-h2">How each kind of interview goes.</h2>
+    <p class="k-note interviews-lede">
       How interviews usually go for each kind of job, round by round, in our own words, with free places to practise each
       round. For the questions people were actually asked, each job links to Glassdoor and AmbitionBox, where candidates post
       them after their interviews. Those pages stay current on their own.
     </p>
-    <nav class="jump" aria-label="Kinds of interview">
-      {loops.map((l) => <a href={`#interview-${l.id}`}>{l.title}</a>)}
+    <nav class="k-chips" aria-label="Kinds of interview">
+      {loops.map((l) => <a class="k-chip" href={`#interview-${l.id}`}><i></i>{l.title}</a>)}
     </nav>
     {loops.map((l) => (
-      <article class="loop" id={`interview-${l.id}`} aria-labelledby={`interview-${l.id}-title`}>
+      <article class="k-box loop" id={`interview-${l.id}`} aria-labelledby={`interview-${l.id}-title`}>
         <h3 id={`interview-${l.id}-title`}>{l.title}</h3>
         <p class="quiet">{l.who}</p>
         <ol class="rounds">
@@ -112,7 +123,7 @@ const loops = c.interviews.map((l) => ({
         {l.revise.length > 0 && (
           <p class="tests">
             <span class="tests-label">Revise on Terminus</span>
-            {l.revise.map((x) => <a class="chip" data-area={x.area} href={hrefOf(x.id)}>{x.title}</a>)}
+            {l.revise.map((x) => <a class="k-tile" data-area={x.area} style="--c: var(--line)" href={hrefOf(x.id)}>{x.title}</a>)}
           </p>
         )}
         <details class="asked">
@@ -132,33 +143,15 @@ const loops = c.interviews.map((l) => ({
 </Base>
 
 <style>
-  h1 { padding-top: 8px; font-size: clamp(2.2rem, 7vw, 3.6rem); }
-  .lede { font-size: 1.1875rem; max-width: 62ch; margin-top: 14px; }
-  .jump { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; max-width: 900px; }
-  .jump a { font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.1rem; }
-  section { margin-top: 44px; scroll-margin-top: 16px; }
-  .platforms {
-    list-style: none; padding: 0; margin: 12px 0 0; border-top: 3px solid var(--ink);
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); column-gap: 32px;
-  }
-  .platforms li { padding: 14px 0 16px; border-bottom: 1px solid var(--rule); display: grid; gap: 3px; align-content: start; }
-  .platform-name { font-family: var(--sign); font-stretch: 85%; font-size: 1.45rem; font-weight: 650; line-height: 1.1; }
-  .platforms .quiet { font-size: 0.97rem; }
+  .k-sec:first-of-type { margin-top: 48px; }
+  .ext { font-family: var(--text); font-size: 0.9rem; }
+  .k-card-f.k-tiles { display: flex; }
   .tests { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
   .tests-label { font-family: var(--sign); font-stretch: 85%; font-weight: 700; color: var(--ink-2); margin-right: 2px; }
-  .chip {
-    font-size: 0.85rem; font-weight: 600; text-decoration: none; padding: 1px 8px;
-    border: 1.5px solid var(--line); color: var(--ink);
-  }
-  .chip:hover { background: var(--platform); }
-  @media (max-width: 560px) { .platforms { grid-template-columns: 1fr; } }
-
-  .jump .jump-interviews { background: var(--yellow); color: #000; padding: 0 8px; text-decoration: none; }
-  .interviews { margin-top: 64px; padding-top: 24px; border-top: 6px solid var(--ink); }
-  .interviews h2 { font-size: clamp(1.8rem, 5vw, 2.4rem); }
-  .interviews-lede { max-width: 72ch; margin-top: 8px; }
-  .loop { margin-top: 40px; scroll-margin-top: 16px; }
-  .loop h3 { font-size: 1.5rem; }
+  .interviews-lede { max-width: 72ch; }
+  .interviews .k-chips { margin-top: 18px; }
+  .loop { margin-top: 24px; scroll-margin-top: 80px; box-shadow: 8px 8px 0 var(--yellow); }
+  .loop h3 { font-size: 1.7rem; }
   .loop > .quiet { max-width: 72ch; margin-top: 4px; }
   /* Rounds as stops on a line: across on a wide screen, down on a narrow one. */
   .rounds { list-style: none; padding: 0; margin: 18px 0 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0 22px; position: relative; }

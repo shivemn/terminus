@@ -25,124 +25,152 @@ const others = c.designs
   .slice(0, 8)
   .map((o) => o.x);
 const firstSentence = d.summary.split(/(?<=\.)\s/)[0];
+let k = 0;
+const num = () => String(++k).padStart(2, '0');
 ---
 
 <Base wide title={d.title} description={firstSentence}>
   <article class="design" data-area="systems">
-    <header class="head">
-      <p class="crumbs"><a href="/designs">Designs</a> / {level.title}</p>
-      <h1><span class="board">{d.title}</span></h1>
-      <p class="like">
-        Like {d.like.map((x, i) => <>{i > 0 && (i === d.like.length - 1 ? ' and ' : ', ')}<b>{x}</b></>)}
-        <span class="chip-level">{level.title}</span>
-      </p>
-      <p class="gist">{d.summary}</p>
+    <header class="k-head">
+      <div class="k-head-id">
+        <p class="k-crumbs"><a href="/designs">Designs</a> / {level.title}</p>
+        <h1><span class="board">{d.title}</span></h1>
+        <p class="k-lede">{d.summary}</p>
+      </div>
+      <dl class="k-glance">
+        <div><dt>Like</dt><dd class="k-big">{d.like.join(', ')}</dd></div>
+        <div><dt>Level</dt><dd><span class="k-tag y">{level.title}</span></dd></div>
+        <div><dt>To follow</dt><dd class="k-big"><span class="num">{d.flows.length}</span> flows <small>through the diagram</small></dd></div>
+        <div><dt>Compared with</dt><dd class="k-big"><a href="#real-h"><span class="num">{d.companies.length}</span> {d.companies.length === 1 ? 'company' : 'companies'} <span aria-hidden="true">&darr;</span></a></dd></div>
+        <div><dt>Stops to learn</dt><dd class="k-big"><a href="#learn"><span class="num">{stops.length}</span> stops <span aria-hidden="true">&darr;</span></a></dd></div>
+      </dl>
     </header>
 
-    <section class="diagram-block" aria-labelledby="arch">
-      <h2 id="arch">How it fits together</h2>
+    <section class="k-sec diagram-block" aria-labelledby="arch">
+      <p class="k-label"><span class="k-n">{num()}</span>How it fits together</p>
+      <h2 id="arch" class="k-h2">Follow a request through it.</h2>
       <DesignDiagram design={d} hrefs={hrefs} />
     </section>
 
-    <div class="lower">
-      <div class="main">
-        <section aria-labelledby="reqs">
-          <h2 id="reqs">What it must do</h2>
-          <div class="cols">
-            <div>
-              <h3>Features</h3>
-              <ul class="ticks">{d.requirements.features.map((x) => <li>{x}</li>)}</ul>
-            </div>
-            <div>
-              <h3>Qualities</h3>
-              <ul class="ticks">{d.requirements.qualities.map((x) => <li>{x}</li>)}</ul>
-            </div>
-          </div>
-        </section>
-
-        <section aria-labelledby="nums">
-          <h2 id="nums">Rough numbers</h2>
-          <p class="assume">{d.numbers.assumption}</p>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th scope="col">What</th><th scope="col">Size</th><th scope="col">How we got it</th></tr></thead>
-              <tbody>
-                {d.numbers.rows.map((r) => (
-                  <tr><td>{r.what}</td><td class="num">{r.size}</td><td>{r.how}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {d.numbers.realScale.length > 0 && (
-            <div class="real">
-              <h3>At real scale</h3>
-              {d.numbers.realScale.map((r) => (
-                <p>
-                  <b>{r.name}</b> {r.text}{' '}
-                  <a href={r.source.url} rel="noopener">({r.source.publisher}, {r.source.year})</a>
-                </p>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section aria-labelledby="dec">
-          <h2 id="dec">Key decisions</h2>
-          <ul class="decide">
-            {d.decisions.map((x) => (
-              <li><b>{x.title}</b><span>{x.text}</span></li>
-            ))}
-          </ul>
-        </section>
-
-        <section aria-labelledby="brk">
-          <h2 id="brk">What breaks first</h2>
-          <ul class="ticks breaks">
-            {d.breaks.map((b) => (
-              <li><em>{b.what}</em> {b.fix}</li>
-            ))}
-          </ul>
-        </section>
-
-        <section aria-labelledby="learn">
-          <h2 id="learn">Learn the pieces</h2>
-          <p class="quiet">Each of these is a stop on Terminus routes.</p>
-          <p class="stops">
-            {stops.map((s) => <a class="chip" data-area={s.area} href={href(s.id)}>{s.title}</a>)}
-          </p>
-        </section>
+    <section class="k-sec" aria-labelledby="reqs">
+      <p class="k-label"><span class="k-n">{num()}</span>What it must do</p>
+      <h2 id="reqs" class="k-h2">Features, and how well it has to do them.</h2>
+      <div class="k-two">
+        <div class="k-box">
+          <h3 class="k-box-t">Features</h3>
+          <ul class="ticks">{d.requirements.features.map((x) => <li>{x}</li>)}</ul>
+        </div>
+        <div class="k-box">
+          <h3 class="k-box-t">Qualities</h3>
+          <ul class="ticks">{d.requirements.qualities.map((x) => <li>{x}</li>)}</ul>
+        </div>
       </div>
+    </section>
 
-      <aside class="rail" aria-labelledby="real-h">
-        <h2 id="real-h">How the real ones built it</h2>
-        <p class="intro">What each company has published about its own system.</p>
-        {d.companies.map((co) => (
-          <div class="co">
-            <h3>{co.name}</h3>
-            <p>{co.text}</p>
-            <ul>
-              {co.links.map((l) => (
-                <li><a href={l.url} rel="noopener">{l.title}</a> <small>{l.publisher}, {l.year}</small></li>
+    <section class="k-sec" aria-labelledby="nums">
+      <p class="k-label"><span class="k-n">{num()}</span>Rough numbers</p>
+      <h2 id="nums" class="k-h2">How big it gets.</h2>
+      <p class="k-note">{d.numbers.assumption}</p>
+      <div class="k-box y numbers">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">What</th><th scope="col">Size</th><th scope="col">How we got it</th></tr></thead>
+            <tbody>
+              {d.numbers.rows.map((r) => (
+                <tr><td>{r.what}</td><td class="num">{r.size}</td><td>{r.how}</td></tr>
               ))}
-            </ul>
-          </div>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {d.numbers.realScale.length > 0 && (
+        <div class="k-box real">
+          <h3 class="k-box-t">At real scale</h3>
+          {d.numbers.realScale.map((r) => (
+            <p>
+              <b>{r.name}</b> {r.text}{' '}
+              <a href={r.source.url} rel="noopener">({r.source.publisher}, {r.source.year})</a>
+            </p>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section class="k-sec" aria-labelledby="dec">
+      <p class="k-label"><span class="k-n">{num()}</span>Key decisions</p>
+      <h2 id="dec" class="k-h2">The choices that shape it.</h2>
+      <ol class="k-grid decide">
+        {d.decisions.map((x, i) => (
+          <li>
+            <div class="k-card">
+              <span class="dec-n num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <h3 class="k-card-t">{x.title}</h3>
+              <p class="k-card-s">{x.text}</p>
+            </div>
+          </li>
         ))}
-        {d.others.length > 0 && (
-          <div class="others">
-            <h3>Other diagrams worth seeing</h3>
-            <ul class="ticks">
-              {d.others.map((o) => (
-                <li><a href={o.url} rel="noopener">{o.title}</a> <small class="quiet">{o.publisher}{o.licence ? `, ${o.licence}` : ''}</small></li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </aside>
-    </div>
+      </ol>
+    </section>
 
-    <section class="more" aria-labelledby="more">
-      <h2 id="more">Related designs</h2>
-      <p class="stops">{others.map((o) => <a class="chip" href={`/designs/${o.id}`}>{o.title}</a>)} <a href="/designs">All {c.designs.length} designs</a></p>
+    <section class="k-sec" aria-labelledby="brk">
+      <p class="k-label"><span class="k-n">{num()}</span>What breaks first</p>
+      <h2 id="brk" class="k-h2">Where it strains, and the fix.</h2>
+      <ul class="k-grid breaks">
+        {d.breaks.map((b) => (
+          <li>
+            <div class="k-card" style="--c: var(--warn)">
+              <h3 class="k-card-t">{b.what}</h3>
+              <p class="k-card-s">{b.fix}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="k-sec" id="real" aria-labelledby="real-h">
+      <p class="k-label"><span class="k-n">{num()}</span>How the real ones built it</p>
+      <h2 id="real-h" class="k-h2">What each company has published about its own system.</h2>
+      <ul class="k-grid">
+        {d.companies.map((co) => (
+          <li>
+            <div class="k-card co">
+              <h3 class="k-card-t">{co.name}</h3>
+              <p class="k-card-s">{co.text}</p>
+              <ul class="k-card-f co-links">
+                {co.links.map((l) => (
+                  <li><a href={l.url} rel="noopener">{l.title}</a> <small>{l.publisher}, {l.year}</small></li>
+                ))}
+              </ul>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {d.others.length > 0 && (
+        <div class="k-box others">
+          <h3 class="k-box-t">Other diagrams worth seeing</h3>
+          <ul class="ticks">
+            {d.others.map((o) => (
+              <li><a href={o.url} rel="noopener">{o.title}</a> <small class="quiet">{o.publisher}{o.licence ? `, ${o.licence}` : ''}</small></li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+
+    <section class="k-sec" id="learn" aria-labelledby="learn-h">
+      <p class="k-label"><span class="k-n">{num()}</span>Learn the pieces</p>
+      <h2 id="learn-h" class="k-h2">Each of these is a stop on Terminus routes.</h2>
+      <ul class="k-tiles pieces">
+        {stops.map((s) => <li><a class="k-tile" data-area={s.area} style="--c: var(--line)" href={href(s.id)}>{s.title}</a></li>)}
+      </ul>
+    </section>
+
+    <section class="k-sec more" aria-labelledby="more">
+      <p class="k-label"><span class="k-n">{num()}</span>Related designs</p>
+      <ul class="k-tiles pieces">
+        {others.map((o) => <li><a class="k-tile" href={`/designs/${o.id}`}>{o.title}</a></li>)}
+        <li><a class="k-tile all" href="/designs">All {c.designs.length} designs</a></li>
+      </ul>
       <p class="quiet small">
         Diagrams drawn for Terminus, simplified for learning, with icons from Tabler Icons (MIT). What a company built comes only from
         that company's own posts, talks or docs, linked above. Numbers in the table are our assumptions; real figures name their source.
@@ -153,54 +181,28 @@ const firstSentence = d.summary.split(/(?<=\.)\s/)[0];
 
 <style>
   .design { padding-bottom: 40px; }
-  .head { padding-block: 8px 4px; }
-  .crumbs { color: var(--ink-3); font-size: 0.95rem; margin: 0 0 10px; }
-  .crumbs a { color: inherit; }
-  h1 { margin: 0; }
-  .like { font: 500 1.5rem var(--sign); margin: 14px 0 0; color: var(--ink-2); }
-  .like b { color: var(--ink); font-weight: 600; }
-  .chip-level { display: inline-block; font: 700 0.85rem var(--text); border: 2px solid var(--ink); padding: 0 8px; margin-left: 10px; vertical-align: 3px; color: var(--ink); }
-  .gist { max-width: 68ch; font-size: 1.12rem; margin: 12px 0 0; }
-  h2 { font: 600 2rem/1.05 var(--sign); margin: 0 0 6px; text-wrap: balance; }
-  h3 { font: 600 1.45rem/1.1 var(--sign); margin: 0; }
-  .diagram-block { border-top: 3px solid var(--ink); margin-top: 24px; padding-top: 18px; }
-  .lower { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 48px; margin-top: 44px; align-items: start; }
-  @media (max-width: 1050px) { .lower { grid-template-columns: minmax(0, 1fr); } }
-  .main > section { margin-bottom: 40px; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
-  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
   .ticks { list-style: none; padding: 0; margin: 6px 0 0; }
-  .ticks li { padding-left: 20px; position: relative; margin: 4px 0; }
-  .ticks li::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 8px; height: 8px; background: var(--ink); }
+  .ticks li { padding-left: 20px; position: relative; margin: 6px 0; }
+  .ticks li::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 8px; height: 8px; background: var(--yellow); outline: 1.5px solid var(--ink); }
+  .numbers { margin-top: 16px; padding: 10px 20px 14px; }
   .table-wrap { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 0.98rem; }
-  th, td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--rule); }
-  thead th { border-bottom: 3px solid var(--ink); font-weight: 700; }
-  td.num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-  .assume { font-size: 0.95rem; color: var(--ink-2); margin: 2px 0 10px; }
-  .real { margin-top: 14px; border: 2px solid var(--ink); padding: 12px 16px; }
-  .real h3 { font-size: 1.25rem; margin-bottom: 4px; }
-  .real p { margin: 4px 0; font-size: 0.98rem; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); }
+  thead th { border-bottom: 3px solid var(--ink); font-family: var(--sign); font-stretch: 88%; font-weight: 700; font-size: 1.15rem; }
+  td.num { font-family: var(--sign); font-weight: 720; font-size: 1.2rem; white-space: nowrap; }
+  .real { margin-top: 20px; }
+  .real p { margin: 8px 0 0; font-size: 0.98rem; }
   .real a { color: var(--ink-2); }
-  .decide { list-style: none; padding: 0; margin: 8px 0 0; border-top: 3px solid var(--ink); }
-  .decide li { padding: 10px 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 190px 1fr; gap: 16px; }
-  .decide b { font: 600 1.3rem/1.1 var(--sign); }
-  @media (max-width: 640px) { .decide li { grid-template-columns: 1fr; gap: 2px; } }
-  .breaks em { font-style: normal; font-weight: 700; }
-  .stops { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
-  .rail { position: sticky; top: 16px; }
-  @media (max-width: 1050px) { .rail { position: static; } }
-  .rail > h2 { font-size: 1.8rem; }
-  .rail .intro { font-size: 0.95rem; color: var(--ink-2); margin: 0 0 12px; }
-  .co { border-top: 3px solid var(--ink); padding: 10px 0 14px; }
-  .co h3 { font-size: 1.5rem; }
-  .co p { margin: 2px 0 6px; font-size: 0.96rem; }
-  .co ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-  .co li { font-size: 0.95rem; }
-  .co li a { font-weight: 600; }
-  .co small, .others small { color: var(--ink-3); font-size: 0.85rem; }
-  .others { border-top: 3px solid var(--ink); padding-top: 10px; margin-top: 6px; }
-  .others h3 { font-size: 1.3rem; }
-  .more { border-top: 3px solid var(--ink); margin-top: 24px; padding-top: 14px; }
-  .small { font-size: 0.9rem; max-width: 80ch; }
+  .decide { list-style: none; }
+  .dec-n { font-family: var(--sign); font-weight: 720; font-size: 2.2rem; line-height: 0.8; color: var(--ink-3); }
+  .k-card:hover .dec-n { color: var(--ink); }
+  .co-links { list-style: none; margin: 0; padding: 12px 0 0; display: grid; gap: 6px; }
+  .co-links li { font-size: 0.92rem; }
+  .co-links a { font-weight: 600; }
+  .co-links small, .others small { color: var(--ink-3); font-size: 0.85rem; }
+  .others { margin-top: 20px; }
+  .pieces { margin-top: 18px; gap: 8px; }
+  .pieces .k-tile { min-height: 40px; font-size: 1.15rem; }
+  .k-tile.all { --c: var(--yellow); }
+  .small { font-size: 0.9rem; max-width: 80ch; margin-top: 18px; }
 </style>

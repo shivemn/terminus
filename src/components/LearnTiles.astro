@@ -1,0 +1,93 @@
+---
+// "Where to learn it" on tool and stop pages: one framed card of Read, Watch and
+// Practise tiles, plus any other options, like the stop on the home page.
+import MediaIcon from './MediaIcon.astro';
+import { MEDIA } from '../lib/schema';
+import type { StopDetail } from '../lib/stops';
+import '../styles/picks.css';
+
+interface Props {
+  title: string;
+  detail: StopDetail;
+}
+const { title, detail } = Astro.props;
+const LABEL = { read: 'Read', watch: 'Watch', practice: 'Practise' } as const;
+const CTA = { read: 'Open it', watch: 'Start watching', practice: 'Start practising' } as const;
+const MISSING = { read: 'No book or written guide picked yet.', watch: 'No video course picked yet.', practice: 'No practice set picked yet.' } as const;
+const issue = (t: string) => `https://github.com/shivemn/terminus/issues/new?title=${encodeURIComponent(t)}`;
+---
+
+<div class="learn" data-reveal>
+  {MEDIA.map((m, i) => {
+    const src = detail.picks[m];
+    return (
+      <div class:list={['ltile', { missing: !src }]}>
+        <span class="ltile-k"><MediaIcon medium={m} /> {String(i + 1).padStart(2, '0')} &middot; {LABEL[m]}</span>
+        {src ? (
+          <>
+            <p class="ltile-t">{src.title}</p>
+            <p class="ltile-m">{src.author} &middot; {src.locator}</p>
+            {src.why && <p class="ltile-m">{src.why}</p>}
+            {src.note && <p class="ltile-m faint">{src.note}</p>}
+            {(!src.free || !src.verified) && (
+              <p class="flags">
+                {!src.free && <span class="flag paid">Paid</span>}
+                {!src.verified && <span class="flag" title="Nobody has opened it yet to confirm the chapter or lecture numbers.">Section not checked yet</span>}
+              </p>
+            )}
+            <a class="ltile-l" href={src.url} rel="noopener">{CTA[m]} <span aria-hidden="true">&nearr;</span></a>
+          </>
+        ) : (
+          <>
+            <p class="ltile-m">{MISSING[m]}</p>
+            <a class="ltile-l" href={issue(`${LABEL[m]} pick for ${title}`)} rel="noopener">Suggest one <span aria-hidden="true">&nearr;</span></a>
+          </>
+        )}
+      </div>
+    );
+  })}
+  {detail.others.length > 0 && (
+    <div class="ltile">
+      <span class="ltile-k">04 &middot; Also good</span>
+      <ul class="others">
+        {detail.others.map((o) => (
+          <li>
+            <a class="ltile-t" href={o.url} rel="noopener">{o.title}</a>
+            <p class="ltile-m">
+              {LABEL[o.medium]}{o.role === 'deep-dive' ? ', to go deeper' : ''} &middot; {o.locator}
+              {!o.free && <span class="flag paid">Paid</span>}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
+<p class="report faint">Wrong chapter, dead link, or know something better? <a href={issue(`Problem with a pick for ${title}`)} rel="noopener">Tell us on GitHub</a>.</p>
+
+<style>
+  /* Where to learn it: one framed card of tiles, like the stop on the home page. */
+  .learn {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5px; margin-top: 22px;
+    border: 3px solid var(--ink); background: var(--ink); box-shadow: 10px 10px 0 var(--yellow);
+  }
+  .ltile { display: flex; flex-direction: column; gap: 6px; padding: 24px 26px 22px; background: var(--paper); min-width: 0; }
+  .ltile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .ltile-k { display: flex; align-items: center; gap: 8px; font-family: var(--sign); font-stretch: 85%; font-weight: 650; font-size: 1.02rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+  .ltile-k :global(svg) { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--line, var(--ink)); stroke-width: 2; }
+  .ltile-k :global(svg .fill) { fill: var(--line, var(--ink)); stroke: none; }
+  .ltile-t { font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: clamp(1.4rem, 2vw, 1.75rem); line-height: 1.02; }
+  a.ltile-t { text-decoration-thickness: 2px; text-underline-offset: 0.12em; }
+  .ltile-m { font-size: 0.95rem; color: var(--ink-2); }
+  .ltile-l { margin-top: auto; padding-top: 10px; font-weight: 700; font-size: 0.95rem; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .ltile-l span { transition: transform 0.2s ease; }
+  .ltile-l:hover span { transform: translate(3px, -3px); }
+  .missing .ltile-m { color: var(--ink-3); }
+  .others { list-style: none; padding: 0; margin: 2px 0 0; display: grid; gap: 12px; }
+  .others .flag { margin-left: 8px; }
+  .report { font-size: 0.9rem; margin-top: 18px; }
+  @media (max-width: 760px) {
+    .learn { grid-template-columns: minmax(0, 1fr); box-shadow: 6px 6px 0 var(--yellow); }
+    .ltile { padding: 18px 16px; }
+  }
+</style>

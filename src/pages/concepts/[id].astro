@@ -1,9 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { content, listOf } from '../../lib/site';
-import { TIERS } from '../../lib/schema';
+import { content } from '../../lib/site';
+import { MEDIA, TIERS } from '../../lib/schema';
 import { stopDetails } from '../../lib/stops';
-import Picks from '../../components/Picks.astro';
+import CoverBoxes from '../../components/CoverBoxes.astro';
+import LearnTiles from '../../components/LearnTiles.astro';
+import RoleTiles from '../../components/RoleTiles.astro';
 
 export function getStaticPaths() {
   return content().concepts.map((x) => ({ params: { id: x.id } }));
@@ -12,81 +14,97 @@ export function getStaticPaths() {
 const c = content();
 const concept = c.concepts.find((x) => x.id === Astro.params.id)!;
 const byId = new Map(c.concepts.map((x) => [x.id, x]));
-const resources = new Map(c.resources.map((r) => [r.id, r]));
 const area = c.areas.find((a) => a.id === concept.area)!;
 
 const before = concept.requires.map((id) => byId.get(id)!);
 const helpful = concept.recommends.map((id) => byId.get(id)!);
 const after = c.concepts.filter((x) => x.requires.includes(concept.id));
-const LEVEL_WORD = { beginner: 'beginner', intermediate: 'intermediate', advanced: 'advanced' } as const;
-const inRoles = c.roles.flatMap((r) => {
-  // A project shows the level it's offered at on each route.
-  const level = r.projects && (Object.keys(LEVEL_WORD) as Array<keyof typeof LEVEL_WORD>).find((l) => r.projects![l] === concept.id);
-  if (level) return [{ role: r, note: `as the ${LEVEL_WORD[level]} project` }];
-  return TIERS.filter((t) => r.tiers[t.id].includes(concept.id)).map((t) => ({
-    role: r,
-    note: t.id === 'hire' ? 'to get hired' : t.id === 'firstYear' ? 'in the first year' : 'good to have',
-  }));
-});
+// The jobs that ask for it, grouped the way the tool pages group them.
+const projectRoles = c.roles.filter((r) => r.projects && Object.values(r.projects).includes(concept.id));
+const TIER_TITLE = { hire: 'To get hired', firstYear: 'In the first year', extra: 'Good to have' } as const;
+const roleGroups = [
+  { id: 'project', title: 'As the project', roles: projectRoles },
+  // A role that offers it as its project doesn't show again under a tier.
+  ...TIERS.map((t) => ({ id: t.id, title: TIER_TITLE[t.id], roles: c.roles.filter((r) => r.tiers[t.id].includes(concept.id) && !projectRoles.includes(r)) })),
+].filter((g) => g.roles.length);
+const roleCount = new Set(roleGroups.flatMap((g) => g.roles.map((r) => r.id))).size;
+const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+const n = concept.covers.length;
+const coversHead = `${WORDS[n] ?? n} ${n === 1 ? 'thing' : 'things'} to learn${n > 1 ? ', in order' : ''}.`;
 const designs = c.designs.filter((d) => d.stops.includes(concept.id));
 const kindLabel = concept.kind === 'tool' ? 'Tool' : concept.kind === 'project' ? 'Project to build' : null;
 
 const detail = stopDetails(c).find((d) => d.id === concept.id)!;
 const shelf = c.toolGroups.find((g) => g.tools.includes(concept.id));
+const tools = new Set(c.toolGroups.flatMap((g) => g.tools));
+const hrefOf = (id: string) => (tools.has(id) ? `/tools/${id}` : `/concepts/${id}`);
+// Sections are numbered like the home page, skipping any a stop doesn't have.
+let k = 0;
+const num = () => String(++k).padStart(2, '0');
 // Project briefs in these areas usually need hosting or a database, so they point to free tiers.
 const HOSTED_AREAS = new Set(['programming', 'web', 'data', 'ai', 'infra', 'mobile', 'security', 'games', 'blockchain']);
 ---
 
-<Base title={concept.title} description={concept.summary}>
+<Base title={concept.title} description={concept.summary} wide>
   <article data-area={concept.area}>
-    <header class="head">
-      <p class="chips">
-        <span class="area-chip">{area.title}</span>
-        {kindLabel && <span class="kind">{kindLabel}</span>}
-      </p>
-      <h1><span class="board">{concept.title}</span></h1>
-      <p class="summary">{concept.summary}</p>
-      <p class="quiet">
-        About <span class="num">{concept.hours}</span> hours{concept.kind === 'project' ? ' to build' : ' of study'}.
-      </p>
-      {shelf && (
-        <p><a href={`/tools/${concept.id}`}>Learning just this? See your route to it</a></p>
-      )}
-      {concept.kind === 'project' && (
-        <p class="quiet">When it works, put it online: the <a href="/tools#shelf-hosting">hosting shelf</a> lists free places for sites, APIs and databases.</p>
-      )}
+    <header class="k-head">
+      <div class="k-head-id">
+        <p class="k-crumbs"><span class="area-chip">{area.title}</span>{kindLabel && <span class="kind">{kindLabel}</span>}</p>
+        <h1><span class="board">{concept.title}</span></h1>
+        <p class="k-lede">{concept.summary}</p>
+        {shelf && <p><a href={`/tools/${concept.id}`}>Learning just this? See your route to it</a></p>}
+        {concept.kind === 'project' && (
+          <p class="quiet">When it works, put it online: the <a href="/tools#shelf-hosting">hosting shelf</a> lists free places for sites, APIs and databases.</p>
+        )}
+      </div>
+      <dl class="k-glance">
+        <div><dt>{concept.kind === 'project' ? 'Time to build' : 'Study time'}</dt><dd class="k-big">About <span class="num">{concept.hours}</span> hours</dd></div>
+        <div>
+          <dt>Builds on</dt>
+          <dd>{before.length ? <ul class="k-tiles">{before.map((x) => <li><a class="k-tile" data-area={x.area} style="--c: var(--line)" href={hrefOf(x.id)}>{x.title}</a></li>)}</ul> : <span class="quiet">Nothing. You can start here.</span>}</dd>
+        </div>
+        {helpful.length > 0 && (
+          <div><dt>Helps to know</dt><dd><ul class="k-tiles">{helpful.map((x) => <li><a class="k-tile" data-area={x.area} style="--c: var(--line)" href={hrefOf(x.id)}>{x.title}</a></li>)}</ul></dd></div>
+        )}
+        {after.length > 0 && (
+          <div><dt>Leads to</dt><dd><ul class="k-tiles">{after.map((x) => <li><a class="k-tile" data-area={x.area} style="--c: var(--line)" href={hrefOf(x.id)}>{x.title}</a></li>)}</ul></dd></div>
+        )}
+        {roleCount > 0 && (
+          <div><dt>Asked for by</dt><dd><a class="k-big" href="#roles">{roleCount} job {roleCount === 1 ? 'title' : 'titles'} <span aria-hidden="true">&darr;</span></a></dd></div>
+        )}
+      </dl>
     </header>
 
-    {concept.covers.length > 0 && (
-      <section aria-labelledby="covers">
-        <h2 id="covers">What it covers</h2>
-        <p class="quiet section-note">In the order you'd learn it. When you can do each of these, you know this stop.</p>
-        <ol class="covers">
-          {concept.covers.map((c) => <li><b>{c.topic}</b><span>{c.detail}</span></li>)}
-        </ol>
+    {n > 0 && (
+      <section class="k-sec" aria-labelledby="covers">
+        <p class="k-label"><span class="k-n">{num()}</span>What it covers</p>
+        <h2 id="covers" class="k-h2">{coversHead}</h2>
+        <p class="k-note">When you can do each of these, you know this stop.</p>
+        <CoverBoxes covers={concept.covers} />
       </section>
     )}
 
     {concept.brief && (
-      <section aria-labelledby="brief">
-        <h2 id="brief">The brief</h2>
-        <div class="brief">
-          <div>
-            <h3>What to build</h3>
+      <section class="k-sec" aria-labelledby="brief">
+        <p class="k-label"><span class="k-n">{num()}</span>The brief</p>
+        <h2 id="brief" class="k-h2">What to build, and what it has to show.</h2>
+        <div class="k-two">
+          <div class="k-box y">
+            <h3 class="k-box-t">What to build</h3>
             <p class="brief-build">{concept.brief.build}</p>
           </div>
-          <div>
-            <h3>It has to show</h3>
-            <ul class="brief-shows">{concept.brief.shows.map((x) => <li>{x}</li>)}</ul>
+          <div class="k-box">
+            <h3 class="k-box-t">It has to show</h3>
+            <ul class="brief-list">{concept.brief.shows.map((x) => <li>{x}</li>)}</ul>
           </div>
           {concept.brief.stretch.length > 0 && (
-            <div>
-              <h3>If you have time</h3>
-              <ul class="brief-stretch">{concept.brief.stretch.map((x) => <li>{x}</li>)}</ul>
+            <div class="k-box">
+              <h3 class="k-box-t">If you have time</h3>
+              <ul class="brief-list">{concept.brief.stretch.map((x) => <li>{x}</li>)}</ul>
             </div>
           )}
-          <div>
-            <h3>How to show it</h3>
+          <div class="k-box">
+            <h3 class="k-box-t">How to show it</h3>
             <p>{concept.brief.present}</p>
             {HOSTED_AREAS.has(concept.area) && (
               <p class="quiet free-tiers">
@@ -99,55 +117,46 @@ const HOSTED_AREAS = new Set(['programming', 'web', 'data', 'ai', 'infra', 'mobi
       </section>
     )}
 
-    <section aria-labelledby="learn">
-      <h2 id="learn">{concept.brief ? 'Help while you build' : 'Where to learn it'}</h2>
-      <Picks title={concept.title} detail={detail} />
+    <section class="k-sec" aria-labelledby="learn">
+      <p class="k-label"><span class="k-n">{num()}</span>{concept.brief ? 'Help while you build' : 'Where to learn it'}</p>
+      <h2 id="learn" class="k-h2">{concept.brief ? 'What to lean on while you build it.' : MEDIA.every((m) => detail.picks[m]) ? 'One free pick for each way of learning.' : 'Free picks, and where we still need one.'}</h2>
+      <LearnTiles title={concept.title} detail={detail} />
     </section>
 
-    {
-      designs.length > 0 && (
-        <section aria-labelledby="designs">
-          <h2 id="designs">See it in a design</h2>
-          <ul class="role-uses">
-            {designs.map((d) => (
-              <li>
-                <a href={`/designs/${d.id}`}>{d.title}</a>
-                <span class="quiet"> like {d.like.join(', ')}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
+    {designs.length > 0 && (
+      <section class="k-sec" aria-labelledby="designs">
+        <p class="k-label"><span class="k-n">{num()}</span>See it in a design</p>
+        <h2 id="designs" class="k-h2">Where it shows up in a real system.</h2>
+        <ul class="k-grid">
+          {designs.map((d) => (
+            <li>
+              <div class="k-card">
+                <a class="k-card-t" href={`/designs/${d.id}`}>{d.title}</a>
+                <p class="k-card-m">Like {d.like.join(', ')}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
 
-    {
-      inRoles.length > 0 && (
-        <section aria-labelledby="roles">
-          <h2 id="roles">Which roles ask for it</h2>
-          <ul class="role-uses">
-            {inRoles.map(({ role, note }) => (
-              <li>
-                <a href={`/roles/${role.id}`}>{role.title}</a>
-                <span class="quiet"> {note}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
+    {roleCount > 0 && (
+      <section class="k-sec" id="roles" aria-labelledby="roles-title">
+        <p class="k-label"><span class="k-n">{num()}</span>Which roles ask for it</p>
+        <h2 id="roles-title" class="k-h2">{roleCount} job {roleCount === 1 ? 'title asks' : 'titles ask'} for it.</h2>
+        <p class="k-note">Grouped by when they need it. The colour on each box is its line.</p>
+        <RoleTiles groups={roleGroups} />
+      </section>
+    )}
 
-    <section class="neighbours" aria-labelledby="around">
-      <h2 id="around">Before and after</h2>
-      <div class="lanes">
+    <section class="k-sec neighbours" aria-labelledby="around">
+      <p class="k-label"><span class="k-n">{num()}</span>Before and after</p>
+      <h2 id="around" class="k-h2">Where it sits on the map.</h2>
+      <div class="k-box lanes">
         <div class="lane">
           <h3>Learn first</h3>
           {before.length === 0 ? <p class="quiet">Nothing. You can start here.</p> : (
             <ul>{before.map((x) => <li data-area={x.area}><a href={`/concepts/${x.id}`}>{x.title}</a></li>)}</ul>
-          )}
-          {helpful.length > 0 && (
-            <p class="faint small">Helps to know: {helpful.map((x, i) => (
-              <>{i > 0 && (i === helpful.length - 1 ? ' and ' : ', ')}<a href={`/concepts/${x.id}`}>{x.title}</a></>
-            ))}</p>
           )}
         </div>
         <div class="lane this" data-area={concept.area}>
@@ -166,30 +175,17 @@ const HOSTED_AREAS = new Set(['programming', 'web', 'data', 'ai', 'infra', 'mobi
 </Base>
 
 <style>
-  .head { display: grid; gap: 14px; padding: 8px 0 8px; }
-  .head h1 { font-size: clamp(2rem, 6.5vw, 3.4rem); }
-  .chips { display: flex; gap: 12px; align-items: center; }
-  .role-uses { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
-  .role-uses a { font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.15rem; }
-  .summary { font-size: 1.25rem; line-height: 1.5; max-width: 56ch; }
-
-  section { margin-top: 44px; }
-  .brief { max-width: 66ch; margin-top: 12px; }
+  .k-crumbs { display: flex; gap: 12px; align-items: center; }
+  .brief-build { font-size: 1.1rem; }
+  .brief-list { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
   .free-tiers { font-size: 0.95rem; margin-top: 8px; }
-  .covers { max-width: 72ch; margin-top: 10px; border-top: 3px solid var(--ink); }
-  .section-note { margin-top: 2px; }
-  h2 { margin-bottom: 8px; }
-
-  .small { font-size: 0.9375rem; margin-top: 8px; }
-
-  .lanes { display: grid; grid-template-columns: 1fr auto 1fr; gap: 28px; align-items: start; margin-top: 16px; }
+  .lanes { display: grid; grid-template-columns: 1fr auto 1fr; gap: 28px; align-items: start; margin-top: 20px; }
   .lane h3 { font-size: 1.05rem; color: var(--ink-2); margin-bottom: 8px; }
   .lane ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
   .lane li { display: flex; align-items: center; gap: 10px; }
   .lane li::before { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--line); background: var(--paper); flex: none; }
   .this { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 8px 0; text-align: center; max-width: 16ch; font-family: var(--sign); font-stretch: 85%; font-size: 1.15rem; }
   .this .dot { width: 28px; height: 28px; border-radius: 50%; background: var(--yellow); border: 4px solid var(--ink); }
-
   @media (max-width: 640px) {
     .lanes { grid-template-columns: 1fr; gap: 20px; }
     .this { flex-direction: row; padding: 0; max-width: none; text-align: left; }

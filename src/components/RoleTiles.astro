@@ -1,0 +1,83 @@
+---
+// "Which roles ask for it" on tool and stop pages: tiles grouped by when the job
+// needs it, each carrying its line's colour. Routes come first, then the job
+// titles that build on them; a long group shows SHOWN and folds the rest away
+// (Programming basics is asked for by 200-odd).
+import type { Role } from '../lib/schema';
+
+interface Props {
+  groups: Array<{ id: string; title: string; roles: Role[] }>;
+}
+const SHOWN = 24;
+const titles = (k: number) => `${k} job ${k === 1 ? 'title' : 'titles'}`;
+const tierGroups = Astro.props.groups.map((g) => {
+  const roles = [...g.roles].sort((a, b) => Number(!!a.variantOf) - Number(!!b.variantOf));
+  return { ...g, roles, shown: roles.slice(0, SHOWN), rest: roles.slice(SHOWN) };
+});
+---
+
+{tierGroups.map((g) => (
+  <>
+    <h3 class="tier-h">{g.title} <span class="tier-n num">{titles(g.roles.length)}</span></h3>
+    <ul class="role-tiles">
+      {g.shown.map((r, i) => (
+        <li data-reveal style={`--delay:${Math.min(i, 15) * 0.025}s`}>
+          <a class="rtile" href={`/roles/${r.id}`} style={`--c: var(--l-${r.family}, var(--ink-3))`}>
+            {r.title}<span class="rtile-ar" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    {g.rest.length > 0 && (
+      <details class="more-tiles">
+        <summary>Show {g.rest.length} more</summary>
+        <ul class="role-tiles">
+          {g.rest.map((r) => (
+            <li>
+              <a class="rtile" href={`/roles/${r.id}`} style={`--c: var(--l-${r.family}, var(--ink-3))`}>
+                {r.title}<span class="rtile-ar" aria-hidden="true">&rarr;</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    )}
+  </>
+))}
+
+<style>
+  /* Which roles ask for it: tiles grouped by when they need it. */
+  .tier-h {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 30px; padding-bottom: 8px; border-bottom: 3px solid var(--ink);
+    font-size: 1.6rem; font-weight: 700; line-height: 1;
+  }
+  .tier-n { font-family: var(--text); font-size: 0.82rem; font-weight: 700; color: var(--ink-2); }
+  .role-tiles { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .rtile {
+    position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 100%; min-height: 60px;
+    padding: 8px 14px 4px 22px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); text-decoration: none;
+    font-family: var(--sign); font-stretch: 88%; font-weight: 650; font-size: 1.2rem; line-height: 1.05;
+    transition: background-color 0.15s ease, padding-left 0.15s ease;
+  }
+  .rtile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--c); }
+  .rtile:hover { background: var(--platform); padding-left: 30px; }
+  .rtile-ar { flex: none; font-family: var(--text); font-size: 1.05rem; opacity: 0; transform: translateX(-6px); transition: opacity 0.15s ease, transform 0.2s ease; }
+  .rtile:hover .rtile-ar, .rtile:focus-visible .rtile-ar { opacity: 1; transform: none; }
+
+  .more-tiles { margin-top: 12px; }
+  .more-tiles summary {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 16px 2px; border: 2px solid var(--ink); background: var(--paper);
+    font-family: var(--sign); font-stretch: 88%; font-weight: 680; font-size: 1.15rem; cursor: pointer; list-style: none;
+    transition: background-color 0.15s ease;
+  }
+  .more-tiles summary::-webkit-details-marker { display: none; }
+  .more-tiles summary::after { content: '+'; font-family: var(--text); transition: transform 0.25s ease; }
+  .more-tiles[open] summary::after { transform: rotate(45deg); }
+  .more-tiles summary:hover { background: var(--platform); }
+  .more-tiles[open] .role-tiles { animation: rise 0.3s ease; }
+  @media (max-width: 760px) {
+    .role-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .rtile { min-height: 56px; padding: 7px 10px 3px 18px; font-size: 1.08rem; }
+    .rtile:hover { padding-left: 24px; }
+  }
+</style>

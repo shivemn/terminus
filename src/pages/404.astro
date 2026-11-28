@@ -2,14 +2,25 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Page not found">
+<Base title="Page not found" wide>
   <div class="lost">
-    <h1><span class="board">No such station</span></h1>
-    <p class="quiet">This page doesn't exist. It may have moved, or the link has a typo in it.</p>
-    <p><a href="/">Back to the start</a></p>
+    <header class="k-head">
+      <div class="k-head-id">
+        <h1><span class="board">No such station</span></h1>
+        <p class="k-lede">This page doesn't exist. It may have moved, or the link has a typo in it.</p>
+      </div>
+    </header>
+    <p class="k-label"><span class="k-n">01</span>Where to next</p>
+    <ul class="k-grid">
+      <li><a class="k-card go" href="/"><span class="k-card-t">The start</span><span class="k-card-s">Plan a route from what you know to the job you want.</span></a></li>
+      <li><a class="k-card go" href="/roles"><span class="k-card-t">All roles</span><span class="k-card-s">Every job title, grouped by route.</span></a></li>
+      <li><a class="k-card go" href="/tools"><span class="k-card-t">Tools</span><span class="k-card-s">Learn one language, database or framework.</span></a></li>
+    </ul>
   </div>
 </Base>
 
 <style>
-  .lost { padding: 64px 0; display: grid; gap: 14px; }
+  .lost { padding: 24px 0 64px; }
+  .k-label { margin-top: 56px; }
+  .go { text-decoration: none; color: var(--ink); }
 </style>

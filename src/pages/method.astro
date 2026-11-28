@@ -17,24 +17,35 @@ const exams = routes.filter((r) => r.kind === 'exam');
 const REPO = 'https://github.com/shivemn/terminus';
 ---
 
-<Base title="How routes are checked" description="Where Terminus's routes come from, how they're checked against real job listings, and how the links are kept honest.">
+<Base wide title="How routes are checked" description="Where Terminus's routes come from, how they're checked against real job listings, and how the links are kept honest.">
   <article class="method">
-    <h1><span class="board">How routes are checked</span></h1>
-    <p class="lede quiet">
-      A route is only as good as its hiring list. Here is where each list comes from, what "checked" means, and what we
-      do to keep it true.
-    </p>
+    <header class="k-head">
+      <div class="k-head-id">
+        <h1><span class="board">How routes are checked</span></h1>
+        <p class="k-lede">
+          A route is only as good as its hiring list. Here is where each list comes from, what "checked" means, and what we do to keep it true.
+        </p>
+      </div>
+      <dl class="k-glance">
+        <div><dt>Checked routes</dt><dd class="k-big"><span class="num">{checked.length}</span> <small>of {jobRoutes.length} job routes</small></dd></div>
+        <div><dt>Listings checked against</dt><dd class="k-big num">{listings.toLocaleString('en-IN')}</dd></div>
+        <div><dt>References checked</dt><dd class="k-big num">{sections.length.toLocaleString('en-IN')}</dd></div>
+      </dl>
+    </header>
 
-    <section>
-      <h2>Every role starts as a draft</h2>
+    <section class="k-sec">
+      <h2 class="k-label"><span class="k-n">01</span>Every role starts as a draft</h2>
+      <div class="k-box">
       <p>
         Each role lists what it needs in three tiers: what gets a fresher hired, what the first year on the job expects,
         and what's good to have. A first list is our own judgement, and the role page says so: it's marked "Draft".
       </p>
+      </div>
     </section>
 
-    <section>
-      <h2>Then it's checked against real listings</h2>
+    <section class="k-sec">
+      <h2 class="k-label"><span class="k-n">02</span>Then it's checked against real listings</h2>
+      <div class="k-box">
       <ol>
         <li>We collect real entry-level postings for the role, usually around 50, for India and 0 to 2 years of experience. They're copied by hand from job sites such as Naukri and LinkedIn and from company career pages. Nothing is scraped.</li>
         <li>Each posting is tagged with the topics it asks for, and saved as one row in a spreadsheet in the repository.</li>
@@ -47,10 +58,12 @@ const REPO = 'https://github.com/shivemn/terminus';
         {' '}{listings.toLocaleString('en-IN')} listings collected in {months.map(monthName).join(' and ')}. The other {drafts.length} still say "Draft".
         {exams.length > 0 && <> The {exams.length} exams follow their official syllabus instead.</>}
       </p>
+      </div>
     </section>
 
-    <section>
-      <h2>Every resource is opened and checked</h2>
+    <section class="k-sec">
+      <h2 class="k-label"><span class="k-n">03</span>Every resource is opened and checked</h2>
+      <div class="k-box">
       <p>
         Each stop points to the chapters, lectures or exercises that teach it, never just a whole book. All
         {' '}{sections.length.toLocaleString('en-IN')} of those references have been opened by a person and the chapter or lecture
@@ -58,10 +71,12 @@ const REPO = 'https://github.com/shivemn/terminus';
         are listed as alternatives, and marked as paid.
       </p>
       <p>A check runs over every link on the first of each month, and opens an issue for anything broken or moved.</p>
+      </div>
     </section>
 
-    <section>
-      <h2>Kept up to date</h2>
+    <section class="k-sec">
+      <h2 class="k-label"><span class="k-n">04</span>Kept up to date</h2>
+      <div class="k-box">
       <p>
         Job markets move, so the checked routes are collected again every year. Every November a reminder opens on
         GitHub with the list of checked routes and the drafts still waiting.
@@ -71,6 +86,7 @@ const REPO = 'https://github.com/shivemn/terminus';
         {' '}<a href={`${REPO}/blob/main/docs/ROLES.md`}>repository</a>. Spotted something wrong, or know a better
         resource? <a href={`${REPO}/issues`}>Tell us on GitHub</a>.
       </p>
+      </div>
     </section>
 
     <p class="back"><a class="btn" href="/#start">Plan my route <span aria-hidden="true">&rarr;</span></a></p>
@@ -78,12 +94,8 @@ const REPO = 'https://github.com/shivemn/terminus';
 </Base>
 
 <style>
-  .method { display: grid; gap: 34px; }
-  .method h1 { font-size: clamp(2rem, 5vw, 3rem); }
-  .lede { font-size: 1.15rem; max-width: 60ch; }
-  section { display: grid; gap: 12px; padding-top: 22px; border-top: 2px solid var(--ink); }
-  h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; }
+  .k-box { margin-top: 18px; display: grid; gap: 12px; max-width: 90ch; }
   ol { margin: 0; padding-left: 1.4em; display: grid; gap: 10px; }
   ol li::marker { font-family: var(--sign); font-weight: 700; }
-  .back { margin-top: 6px; }
+  .back { margin-top: 48px; }
 </style>

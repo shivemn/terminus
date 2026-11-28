@@ -10,6 +10,11 @@ const groups = LEVELS.map((l) => ({ ...l, items: apps.filter((d) => d.level === 
 const order = Object.fromEntries(LEVELS.map((l, i) => [l.id, i]));
 const blockItems = [...blocks].sort((a, b) => order[a.level] - order[b.level]);
 const levelTitle = Object.fromEntries(LEVELS.map((l) => [l.id, l.title]));
+const sections = [
+  ...groups.map((g) => ({ id: `level-${g.id}`, title: g.title, note: g.note, items: g.items, block: false })),
+  ...(blockItems.length ? [{ id: 'blocks', title: 'Building blocks', note: 'The infrastructure the apps above are built on, each marked with its level.', items: blockItems, block: true }] : []),
+];
+const first = (t: string) => t.split(/(?<=\.)\s/)[0];
 ---
 
 <Base
@@ -17,70 +22,52 @@ const levelTitle = Object.fromEntries(LEVELS.map((l) => [l.id, l.title]));
   title="Designs"
   description={`${c.designs.length} worked system designs: apps you use, from chat and UPI payments to video calls and food delivery, and the building blocks under them, from message queues to caches and crawlers.`}
 >
-  <h1><span class="board">Designs</span></h1>
-  <p class="lede">
-    System designs for products you already use. Each one starts with a diagram you can follow request by request, then
-    the numbers, the key decisions and what breaks first, and links to what the real companies published about their own
-    systems.
-  </p>
-  <p class="quiet note">
-    These are our designs, written for learning. They're simplified, and the real systems differ. What a company actually
-    built comes only from that company's own posts, talks or docs, linked on each page.
-  </p>
+  <header class="k-head">
+    <div class="k-head-id">
+      <h1><span class="board">Designs</span></h1>
+      <p class="k-lede">
+        System designs for products you already use. Each one starts with a diagram you can follow request by request, then
+        the numbers, the key decisions and what breaks first, and links to what the real companies published about their own
+        systems.
+      </p>
+    </div>
+    <dl class="k-glance">
+      <div><dt>Designs</dt><dd class="k-big num">{c.designs.length}</dd></div>
+      <div><dt>Levels</dt><dd class="k-tiles">{LEVELS.map((l) => <span class="k-tag">{l.title}</span>)}</dd></div>
+      <div><dt>A note</dt><dd class="k-card-m">These are our designs, written for learning and simplified. What a company actually built comes only from its own posts, talks or docs, linked on each page.</dd></div>
+    </dl>
+  </header>
+
+  <nav class="k-chips" aria-label="Levels">
+    {sections.map((g) => <a class="k-chip" href={`#${g.id}`}><i></i>{g.title} <b>{g.items.length}</b></a>)}
+  </nav>
 
   {
-    groups.map((g) => (
-      <section aria-labelledby={`level-${g.id}`}>
-        <h2 id={`level-${g.id}`}>{g.title}</h2>
-        <p class="quiet level-note">{g.note}</p>
-        <ul class="designs">
+    sections.map((g, gi) => (
+      <section class="k-sec" id={g.id} aria-labelledby={`${g.id}-title`}>
+        <p class="k-label"><span class="k-n">{String(gi + 1).padStart(2, '0')}</span><span id={`${g.id}-title`}>{g.title}</span></p>
+        <p class="k-note">{g.note}</p>
+        <ul class="k-grid">
           {g.items.map((d) => (
             <li>
-              <a class="design-name" href={`/designs/${d.id}`}>{d.title}</a>
-              <p class="like">Like {d.like.join(", ")}</p>
-              <p class="quiet">{d.summary.split(/(?<=\.)\s/)[0]}</p>
-              <p class="faint meta">{d.flows.length} flows to follow, {d.companies.length} {d.companies.length === 1 ? "company" : "companies"} compared</p>
+              <div class="k-card">
+                <a class="k-card-t" href={`/designs/${d.id}`}>{d.title}</a>
+                <p class="k-card-m">Like {d.like.join(', ')}</p>
+                <p class="k-card-s">{first(d.summary)}</p>
+                <p class="k-card-f">
+                  <span class="k-tag">{levelTitle[d.level]}</span>
+                  <span>{d.flows.length} flows to follow, {d.companies.length} {d.companies.length === 1 ? 'company' : 'companies'} compared</span>
+                </p>
+              </div>
             </li>
           ))}
         </ul>
       </section>
     ))
   }
-
-  {
-    blockItems.length > 0 && (
-      <section aria-labelledby="blocks">
-        <h2 id="blocks">Building blocks</h2>
-        <p class="quiet level-note">The infrastructure the apps above are built on, each marked with its level.</p>
-        <ul class="designs">
-          {blockItems.map((d) => (
-            <li>
-              <a class="design-name" href={`/designs/${d.id}`}>{d.title}</a>
-              <p class="like">Like {d.like.join(", ")} <span class="chip-level">{levelTitle[d.level]}</span></p>
-              <p class="quiet">{d.summary.split(/(?<=\.)\s/)[0]}</p>
-              <p class="faint meta">{d.flows.length} flows to follow, {d.companies.length} {d.companies.length === 1 ? "company" : "companies"} compared</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
 </Base>
 
 <style>
-  h1 { padding-top: 8px; font-size: clamp(2.2rem, 7vw, 3.6rem); }
-  .lede { font-size: 1.1875rem; max-width: 66ch; margin-top: 14px; }
-  .note { max-width: 66ch; margin-top: 8px; }
-  section { margin-top: 40px; }
-  .level-note { margin-top: 2px; }
-  .designs {
-    list-style: none; padding: 0; margin: 12px 0 0; border-top: 3px solid var(--ink);
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); column-gap: 32px;
-  }
-  .designs li { padding: 14px 0 18px; border-bottom: 1px solid var(--rule); display: grid; gap: 4px; align-content: start; }
-  .design-name { font-family: var(--sign); font-stretch: 85%; font-size: 1.5rem; font-weight: 650; line-height: 1.1; }
-  .like { font-weight: 600; font-size: 0.97rem; }
-  .meta { font-size: 0.9rem; }
-  .chip-level { display: inline-block; font: 700 0.8rem var(--text); border: 2px solid var(--ink); padding: 0 6px; margin-left: 6px; vertical-align: 1px; }
-  @media (max-width: 560px) { .designs { grid-template-columns: 1fr; } }
+  .k-sec:first-of-type { margin-top: 48px; }
+  .k-glance .k-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
 </style>
